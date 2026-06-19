@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v6
       - id: check
         run: |
-          if grep -q 'citenode' pyproject.toml; then
+          if grep -q '{{project-name}}' pyproject.toml; then
             echo "ready=false" >> $GITHUB_OUTPUT
             echo "Template not yet initialised — run python3 init.py first. CI skipped."
           else
