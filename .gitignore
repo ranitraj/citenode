@@ -192,5 +192,5 @@ layers
 *.mp3
 .tool-versions
 
-# .claude 
+# .claude
 .claude/

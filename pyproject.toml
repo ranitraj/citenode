@@ -44,7 +44,7 @@ convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["D104"]   # template convention: __init__.py stays empty
-"tests/**" = ["D"]          # tests use descriptive names, not docstrings
+"**/tests/**" = ["D"]       # tests use descriptive names, not docstrings (matches services/*/tests/)
 
 [tool.ruff.format]
 quote-style = "double"
@@ -56,7 +56,7 @@ line-ending = "lf"
 # ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.12"
-plugins = ["pydantic.mypy"]
+# pydantic.mypy plugin lives in each service's config (where pydantic is a dep), not root.
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true

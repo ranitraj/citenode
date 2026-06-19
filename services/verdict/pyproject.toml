@@ -37,6 +37,7 @@ testpaths = ["tests"]
 # ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.12"
+plugins = ["pydantic.mypy"]
 strict = true
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -51,3 +52,7 @@ show_error_codes = true
 # ---------------------------------------------------------------------------
 [tool.pylint."MESSAGES CONTROL"]
 disable = ["line-too-long"]
+
+[tool.pylint.basic]
+# Tests and private helpers don't require docstrings (mirrors ruff's tests D-ignore).
+no-docstring-rgx = "^(test_|_)"
