@@ -1,0 +1,19 @@
+# Dependabot config for the template's own dependencies.
+# See https://docs.github.com/code-security/dependabot/dependabot-version-updates
+#
+# Note: Python deps are managed by `uv` (see uv.lock). Dependabot has limited uv
+# support today, so it's not configured here. Run `uv lock --upgrade` periodically,
+# or use Renovate (better uv support) if you want automated PRs.
+#
+# Pre-commit hook versions: bump via `make hooks-update` (runs `pre-commit autoupdate`).
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"

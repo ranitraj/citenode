@@ -1,0 +1,90 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+# HELP:
+# 1. To update versions automatically, run: 'pre-commit autoupdate' (in Terminal)
+# 2. To skip any particular check (say pylint), run: 'SKIP=pylint pre-commit run --all-files'
+
+default_language_version:
+  python: python3.12
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-symlinks
+      - id: requirements-txt-fixer
+      - id: forbid-new-submodules
+      - id: no-commit-to-branch
+        args: ["--branch=main"]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        args: [--ignore-words-list=astroid]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^services/
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: uv run pylint -j 0 --fail-under=10
+        language: system
+        types: [python]
+        exclude: ^services/
+
+  - repo: local
+    hooks:
+      - id: mypy-services
+        name: mypy (services)
+        entry: uv run python scripts/lint_service.py mypy
+        language: system
+        types: [python]
+        files: ^services/
+        pass_filenames: true
+
+  - repo: local
+    hooks:
+      - id: pylint-services
+        name: pylint (services)
+        entry: uv run python scripts/lint_service.py pylint
+        language: system
+        types: [python]
+        files: ^services/
+        pass_filenames: true
+
+  - repo: local
+    hooks:
+      - id: enforce-tdd
+        name: enforce TDD (test file must exist for each src module)
+        entry: python scripts/check_tdd.py
+        language: system
+        types: [python]
+        pass_filenames: true

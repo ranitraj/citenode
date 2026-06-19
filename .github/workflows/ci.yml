@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  preflight:
+    name: Check template initialised
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: check
+        run: |
+          if grep -q '{{project-name}}' pyproject.toml; then
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "Template not yet initialised — run python3 init.py first. CI skipped."
+          else
+            echo "ready=true" >> $GITHUB_OUTPUT
+          fi
+
+  quality:
+    name: Lint & Type Check
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install root dev dependencies
+        run: uv sync --group dev
+
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files
+
+  test:
+    name: Tests
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: ["{{service-name}}"]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: services/${{ matrix.service }}/.python-version
+
+      - name: Install service dependencies
+        working-directory: services/${{ matrix.service }}
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: services/${{ matrix.service }}
+        run: uv run pytest tests/ -v
