@@ -19,7 +19,7 @@ def main() -> int:
     missing: list[tuple[Path, Path]] = []
 
     # Files that hold only data (constants, config) don't need test files.
-    _no_test_required = {"constants.py"}
+    _no_test_required = {"constants.py", "config.py"}
 
     for f in files:
         if "src" not in f.parts or f.name == "__init__.py" or f.name in _no_test_required:
