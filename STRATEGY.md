@@ -1,6 +1,6 @@
-# {{project-name}}
+# citenode
 
-> {{project-description}}
+> Claim-verification assistant: citation-graph retrieval with a cross-family LLM council that refutes to fake consensus
 
 ---
 
