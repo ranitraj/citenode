@@ -52,7 +52,11 @@ show_error_codes = true
 # tool-conflict noise — ruff is the single source of truth for formatting.
 # ---------------------------------------------------------------------------
 [tool.pylint."MESSAGES CONTROL"]
-disable = ["line-too-long"]
+disable = ["line-too-long", "too-few-public-methods"]
+
+[tool.pylint.design]
+max-args = 5
+max-attributes = 10
 
 [tool.pylint.basic]
 # Tests and private helpers don't require docstrings (mirrors ruff's tests D-ignore).

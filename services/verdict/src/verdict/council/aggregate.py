@@ -2,8 +2,6 @@
 
 import math
 
-import numpy as np
-
 from verdict import config
 from verdict.models import (
     AgreementSignals,
@@ -13,6 +11,7 @@ from verdict.models import (
     RankAgg,
     Stance,
 )
+from verdict.vectors import cosine_similarity
 
 _BANDS = ("low", "moderate", "high")
 
@@ -83,9 +82,7 @@ def epistemic_uncertainty(member_embeddings: list[list[float]]) -> float | None:
     vectors = [v for v in member_embeddings if v]
     if len(vectors) < 2:
         return None
-    sims = [
-        _cosine_similarity(vectors[i], vectors[j]) for i in range(len(vectors)) for j in range(i + 1, len(vectors))
-    ]
+    sims = [cosine_similarity(vectors[i], vectors[j]) for i in range(len(vectors)) for j in range(i + 1, len(vectors))]
     return round(1 - sum(sims) / len(sims), 4)
 
 
@@ -189,31 +186,60 @@ def compute_confidence(signals: AgreementSignals, balance: EvidenceBalance) -> C
 
 
 def _rank_sum(model: str, rankings: list[list[str]], absent_position: int) -> int:
-    """Sum a model's 1-indexed positions, using `absent_position` where unranked."""
+    """Sum a model's 1-indexed positions across rankers.
+
+    Parameters
+    ----------
+    model : str
+        The model whose positions are summed.
+    rankings : list[list[str]]
+        The per-ranker orderings.
+    absent_position : int
+        The position to use where a ranker omitted the model.
+
+    Returns
+    -------
+    int
+        The summed 1-indexed positions.
+    """
     return sum(ranking.index(model) + 1 if model in ranking else absent_position for ranking in rankings)
 
 
 def _influence_recency_weight(cited_by: int, year: int) -> float:
-    """Weight a paper by `log1p(cited_by)` discounted by a recency half-life."""
+    """Weight a paper by influence discounted for age.
+
+    Parameters
+    ----------
+    cited_by : int
+        The paper's citation count.
+    year : int
+        The paper's publication year.
+
+    Returns
+    -------
+    float
+        ``log1p(cited_by)`` scaled by a recency half-life factor.
+    """
     age = config.CURRENT_YEAR - year
     recency_factor: float = 0.5 ** (age / config.RECENCY_HALF_LIFE_YEARS)
     return math.log1p(cited_by) * recency_factor
 
 
 def _base_band_index(score: float) -> int:
-    """Map a score to its base band index (0=low, 1=moderate, 2=high)."""
+    """Map a confidence score to its base band index.
+
+    Parameters
+    ----------
+    score : float
+        The absolute weighted lean in [0, 1].
+
+    Returns
+    -------
+    int
+        0 for low, 1 for moderate, 2 for high.
+    """
     if score >= config.CONFIDENCE_HIGH_MIN:
         return 2
     if score >= config.CONFIDENCE_MODERATE_MIN:
         return 1
     return 0
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Return the cosine similarity of two vectors, or 0.0 if either is zero-norm."""
-    va = np.asarray(a, dtype=float)
-    vb = np.asarray(b, dtype=float)
-    norm = float(np.linalg.norm(va)) * float(np.linalg.norm(vb))
-    if norm == 0.0:
-        return 0.0
-    return float(np.dot(va, vb) / norm)

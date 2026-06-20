@@ -16,22 +16,14 @@ from verdict.models import (
     AgreementSignals,
     EvidenceBalance,
     EvidenceItem,
-    Paper,
     Stance,
 )
 
+from tests.factories import make_paper
+
 
 def _item(stance: Stance, cited_by: int, year: int = config.CURRENT_YEAR) -> EvidenceItem:
-    paper = Paper(
-        openalex_id=f"W-{stance}-{cited_by}-{year}",
-        doi=None,
-        title="t",
-        year=year,
-        abstract="a",
-        cited_by=cited_by,
-        is_retracted=False,
-        venue=None,
-    )
+    paper = make_paper(f"W-{stance}-{cited_by}-{year}", cited_by=cited_by, year=year)
     return EvidenceItem(paper=paper, stance=stance, snippet="s", rationale="r")
 
 
