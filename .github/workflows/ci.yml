@@ -42,6 +42,13 @@ jobs:
       - name: Install root dev dependencies
         run: uv sync --group dev
 
+      - name: Install service dependencies
+        run: |
+          for dir in services/*/; do
+            echo "Syncing $dir"
+            (cd "$dir" && uv sync --group dev)
+          done
+
       - name: Run pre-commit hooks
         run: uv run pre-commit run --all-files
 
