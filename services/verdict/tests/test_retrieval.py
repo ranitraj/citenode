@@ -1,12 +1,21 @@
 """Tests for evidence retrieval: candidate gathering over the graph store."""
 
+from unittest.mock import AsyncMock
+
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
-from verdict.models import Edge, EvidenceItem, Stance
-from verdict.retrieval import gather_candidates, score_stances
+from verdict.models import Edge, EvidenceItem, EvidenceSet, Stance
+from verdict.retrieval import gather_candidates, gather_evidence, score_stances
 
 from tests.factories import make_paper
+
+
+def _embedder(vector: list[float]) -> AsyncMock:
+    """Build a stub embedder whose embed coroutine returns a fixed vector."""
+    embedder = AsyncMock()
+    embedder.embed.return_value = vector
+    return embedder
 
 
 def _user_text(messages: list[ModelMessage]) -> str:
@@ -98,3 +107,39 @@ async def test_score_stances_of_no_papers_is_empty():
     model = _stance_for({})
 
     assert await score_stances("a claim", [], model=model) == []
+
+
+async def test_gather_evidence_builds_an_evidence_set_from_recalled_papers():
+    store = InMemoryGraphVectorStore()
+    await store.upsert_paper(make_paper("PRO"), [1.0, 0.0])
+    await store.upsert_paper(make_paper("CON"), [0.9, 0.1])
+    model = _stance_for({"PRO": Stance.SUPPORTS, "CON": Stance.CONTRADICTS})
+
+    evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
+
+    assert isinstance(evidence, EvidenceSet)
+    assert {item.paper.openalex_id for item in evidence.items} == {"PRO", "CON"}
+    assert evidence.balance.supports == 1
+    assert evidence.balance.contradicts == 1
+
+
+async def test_gather_evidence_with_no_candidates_is_empty_with_a_coverage_note():
+    evidence = await gather_evidence(
+        "a claim", store=InMemoryGraphVectorStore(), embedder=_embedder([1.0, 0.0]), model=_stance_for({}), k=5
+    )
+
+    assert evidence.items == []
+    assert evidence.balance.supports == 0
+    assert evidence.balance.weighted_lean == 0.0
+    assert evidence.coverage_note != ""
+
+
+async def test_gather_evidence_excludes_retracted_papers():
+    store = InMemoryGraphVectorStore()
+    await store.upsert_paper(make_paper("ok"), [1.0, 0.0])
+    await store.upsert_paper(make_paper("bad", is_retracted=True), [0.99, 0.01])
+    model = _stance_for({"ok": Stance.SUPPORTS, "bad": Stance.SUPPORTS})
+
+    evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
+
+    assert {item.paper.openalex_id for item in evidence.items} == {"ok"}

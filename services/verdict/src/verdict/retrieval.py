@@ -3,9 +3,40 @@
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
 
-from verdict.models import EvidenceItem, Paper, StanceJudgement
-from verdict.ports import GraphVectorStore
+from verdict import config
+from verdict.council.aggregate import summarise_balance
+from verdict.models import EvidenceItem, EvidenceSet, Paper, Stance, StanceJudgement
+from verdict.ports import Embedder, GraphVectorStore
 from verdict.prompting import render_prompt
+
+
+async def gather_evidence(
+    claim: str, *, store: GraphVectorStore, embedder: Embedder, model: Model, k: int
+) -> EvidenceSet:
+    """Gather the claim's connected literature and score each paper's stance.
+
+    Parameters
+    ----------
+    claim : str
+        The claim under verification.
+    store : GraphVectorStore
+        The graph+vector store to retrieve candidates from.
+    embedder : Embedder
+        The embedder that turns the claim into a query vector.
+    model : Model
+        The model that judges each candidate's stance.
+    k : int
+        The recall breadth passed to candidate gathering.
+
+    Returns
+    -------
+    EvidenceSet
+        The scored evidence items, their aggregate balance, and a coverage note.
+    """
+    query_vec = await embedder.embed(claim)
+    papers = await gather_candidates(query_vec, store=store, k=k, min_cited=config.FOUNDATION_MIN_CITED)
+    items = await score_stances(claim, papers, model=model)
+    return EvidenceSet(items=items, balance=summarise_balance(items), coverage_note=_coverage_note(items))
 
 
 async def gather_candidates(query_vec: list[float], *, store: GraphVectorStore, k: int, min_cited: int) -> list[Paper]:
@@ -71,6 +102,25 @@ async def score_stances(claim: str, papers: list[Paper], *, model: Model) -> lis
             )
         )
     return items
+
+
+def _coverage_note(items: list[EvidenceItem]) -> str:
+    """Describe how much usable evidence was gathered for the claim.
+
+    Parameters
+    ----------
+    items : list[EvidenceItem]
+        The scored evidence items.
+
+    Returns
+    -------
+    str
+        A short human-readable coverage summary.
+    """
+    if not items:
+        return "No papers were retrieved for this claim."
+    on_topic = sum(1 for item in items if item.stance is not Stance.OFF_TOPIC)
+    return f"Scored {len(items)} retrieved papers; {on_topic} on-topic."
 
 
 def _unique_unretracted(papers: list[Paper]) -> list[Paper]:

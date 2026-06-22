@@ -75,6 +75,12 @@ Readers see the interface before implementation details.
 
 ---
 
+## Prompts
+
+LLM prompts live as **Jinja2 `.j2` templates**, kept separate from code under the package's `prompts/` directory (`src/<package>/prompts/`), with the system prompt and per-call prompt as distinct templates. Render them through a `prompting.py::render_prompt(name, /, **context)` loader — never inline prompt strings in code. The loader uses `StrictUndefined`, so a missing template variable raises rather than rendering empty. Write real prompts (role framing, chain-of-thought, verbatim grounding, abstain-when-thin), not bare data stubs.
+
+---
+
 ## Code Review
 
 Before finalising a feature, run [`/review`](.claude/commands/review.md) — it spawns three parallel read-only agents (DRY, simplicity, docs-sync) that produce a ranked report. Agents are user-invoked, not hook-fired, so they don't burn tokens on every edit. See [.claude/agents/README.md](.claude/agents/README.md) for cost / when to upgrade the model / how to add an agent.
