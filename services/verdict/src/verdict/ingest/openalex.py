@@ -47,7 +47,7 @@ class OpenAlexSource:
         Work
             The fetched work with abstract, retraction flag, venue, topics, and refs.
         """
-        raw = await asyncio.to_thread(lambda: Works()[_short_id(work_id)])
+        raw = await self._fetch_raw_work(work_id)
         return _to_work(raw)
 
     async def outgoing_refs(self, work_id: str) -> list[WorkRef]:
@@ -63,7 +63,7 @@ class OpenAlexSource:
         list[WorkRef]
             References to the cited works.
         """
-        raw = await asyncio.to_thread(lambda: Works()[_short_id(work_id)])
+        raw = await self._fetch_raw_work(work_id)
         return [WorkRef(openalex_id=_short_id(ref), doi=None) for ref in raw.get("referenced_works", [])]
 
     async def incoming_citations(self, work_id: str, limit: int) -> list[WorkRef]:
@@ -83,6 +83,21 @@ class OpenAlexSource:
         """
         page = await asyncio.to_thread(lambda: Works().filter(cites=_short_id(work_id)).get(per_page=limit))
         return [_to_work_ref(work) for work in page]
+
+    async def _fetch_raw_work(self, work_id: str) -> dict[str, Any]:
+        """Fetch a single raw work record from OpenAlex by id.
+
+        Parameters
+        ----------
+        work_id : str
+            The OpenAlex identifier, bare (``W123``) or as a full URL.
+
+        Returns
+        -------
+        dict[str, Any]
+            The work object as returned by the OpenAlex API.
+        """
+        return await asyncio.to_thread(lambda: Works()[_short_id(work_id)])
 
 
 def _to_work(raw: dict[str, Any]) -> Work:

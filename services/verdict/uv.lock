@@ -3195,6 +3195,7 @@ name = "verdict"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "numpy" },
     { name = "pyalex" },
     { name = "pydantic" },
@@ -3213,6 +3214,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pyalex", specifier = ">=0.21" },
     { name = "pydantic", specifier = ">=2.12.5,<2.13" },

@@ -1,4 +1,7 @@
-"""Tunable calibration constants for the verdict pipeline."""
+"""Configuration constants for the verdict pipeline: service wiring and calibration."""
+
+# Embeddings service (TEI) endpoint path; the host is injected per deployment.
+EMBEDDINGS_EMBED_PATH = "/embed"
 
 # Evidence influence is recency-weighted: an item one half-life older counts half.
 # These are loose v1 defaults, calibrated on the gold set.

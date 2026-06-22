@@ -99,8 +99,8 @@ change without touching the logic.
 | -------------------- | ------------------------------------- | -------------- |
 | literature source    | find and fetch papers                 | built          |
 | graph + vector store | store papers, embeddings, citations   | in-memory only |
-| paper embeddings     | turn papers into vectors for recall   | planned        |
-| text embeddings      | compare model answers for agreement   | planned        |
+| paper embeddings     | turn papers into vectors for recall   | adapter built  |
+| text embeddings      | compare model answers for agreement   | adapter built  |
 | model provider       | the models for triage, judging, panel | planned        |
 
 ---
