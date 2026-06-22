@@ -3,6 +3,12 @@
 # Embeddings service (TEI) endpoint path; the host is injected per deployment.
 EMBEDDINGS_EMBED_PATH = "/embed"
 
+# HelixDB v3 local instance (Docker container, on-disk). Queries are dynamic.
+# Node labels are PascalCase; properties and edge labels mirror the domain model.
+HELIX_URL = "http://localhost:6969"
+HELIX_PAPER_LABEL = "Paper"
+HELIX_EMBEDDING_FIELD = "embedding"
+
 # Evidence influence is recency-weighted: an item one half-life older counts half.
 # These are loose v1 defaults, calibrated on the gold set.
 CURRENT_YEAR = 2026

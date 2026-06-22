@@ -54,6 +54,11 @@ show_error_codes = true
 module = ["pyalex.*"]
 ignore_missing_imports = true
 
+# helix-db (v3 SDK) ships no type stubs.
+[[tool.mypy.overrides]]
+module = ["helixdb.*"]
+ignore_missing_imports = true
+
 # ---------------------------------------------------------------------------
 # Pylint
 # Line length is owned by ruff (configured at root). Disabling here avoids
