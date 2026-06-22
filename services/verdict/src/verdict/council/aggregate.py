@@ -148,6 +148,31 @@ def weighted_lean(items: list[EvidenceItem]) -> float:
     return numerator / denominator
 
 
+def summarise_balance(items: list[EvidenceItem]) -> EvidenceBalance:
+    """Tally per-paper stances into an EvidenceBalance with the signed lean.
+
+    Parameters
+    ----------
+    items : list[EvidenceItem]
+        The per-paper evidence to summarise.
+
+    Returns
+    -------
+    EvidenceBalance
+        Per-stance counts and the influence-weighted lean over the items.
+    """
+    counts = {stance: 0 for stance in Stance}
+    for item in items:
+        counts[item.stance] += 1
+    return EvidenceBalance(
+        supports=counts[Stance.SUPPORTS],
+        contradicts=counts[Stance.CONTRADICTS],
+        neutral=counts[Stance.NEUTRAL],
+        off_topic=counts[Stance.OFF_TOPIC],
+        weighted_lean=weighted_lean(items),
+    )
+
+
 def compute_confidence(signals: AgreementSignals, balance: EvidenceBalance) -> Confidence:
     """Derive confidence from the evidence balance, capped by council disagreement.
 

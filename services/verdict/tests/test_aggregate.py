@@ -10,6 +10,7 @@ from verdict.council.aggregate import (
     epistemic_uncertainty,
     has_disagreement,
     kendalls_w,
+    summarise_balance,
     weighted_lean,
 )
 from verdict.models import (
@@ -153,6 +154,34 @@ def test_weighted_lean_halves_weight_for_one_half_life_older_evidence():
     older = _item(Stance.CONTRADICTS, 100, year=config.CURRENT_YEAR - config.RECENCY_HALF_LIFE_YEARS)
     expected = (1.0 - 0.5) / (1.0 + 0.5)
     assert weighted_lean([recent, older]) == pytest.approx(expected)
+
+
+def test_summarise_balance_counts_each_stance_bucket():
+    items = [
+        _item(Stance.SUPPORTS, 10),
+        _item(Stance.SUPPORTS, 10),
+        _item(Stance.CONTRADICTS, 10),
+        _item(Stance.NEUTRAL, 10),
+        _item(Stance.OFF_TOPIC, 10),
+    ]
+
+    balance = summarise_balance(items)
+
+    assert (balance.supports, balance.contradicts, balance.neutral, balance.off_topic) == (2, 1, 1, 1)
+
+
+def test_summarise_balance_carries_the_weighted_lean():
+    items = [_item(Stance.SUPPORTS, 10), _item(Stance.OFF_TOPIC, 1_000_000)]
+
+    balance = summarise_balance(items)
+
+    assert balance.weighted_lean == pytest.approx(weighted_lean(items))
+
+
+def test_summarise_balance_of_no_items_is_all_zero():
+    balance = summarise_balance([])
+
+    assert balance == EvidenceBalance(supports=0, contradicts=0, neutral=0, off_topic=0, weighted_lean=0.0)
 
 
 # --- compute_confidence (balance base; disagreement only caps) -------------
