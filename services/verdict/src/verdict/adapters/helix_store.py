@@ -87,18 +87,7 @@ class HelixGraphVectorStore:
         list[Paper]
             Up to k papers, most similar first.
         """
-        batch = (
-            read_batch()
-            .var_as(
-                "hits",
-                g()
-                .vector_search_nodes(config.HELIX_PAPER_LABEL, config.HELIX_EMBEDDING_FIELD, query_vec, k)
-                .project([Projection.property(field) for field in _PAPER_FIELDS]),
-            )
-            .returning(["hits"])
-        )
-        result = await self._read(batch, "recall_papers")
-        return [_to_paper(props) for props in result["hits"]["properties"]]
+        return await self._vector_search_papers(query_vec, k, "recall_papers")
 
     async def evidence_neighbourhood(self, paper_id: str) -> Subgraph:
         """Return a paper's cited and citing neighbours with their cites edges.
@@ -127,6 +116,84 @@ class HelixGraphVectorStore:
         edges = [Edge(src=paper_id, dst=p.openalex_id, kind="cites") for p in cited]
         edges += [Edge(src=p.openalex_id, dst=paper_id, kind="cites") for p in citing]
         return Subgraph(papers=cited + citing, edges=edges)
+
+    async def foundations_for_query(self, query_vec: list[float], k: int, min_cited: int) -> Subgraph:
+        """Return the most-cited papers near the query, with the cites edges among them.
+
+        Parameters
+        ----------
+        query_vec : list[float]
+            The query embedding.
+        k : int
+            The maximum number of foundational papers to return.
+        min_cited : int
+            The minimum citation count a paper must have to qualify.
+
+        Returns
+        -------
+        Subgraph
+            The qualifying papers nearest the query and the cites edges among them.
+        """
+        papers = await self._vector_search_papers(
+            query_vec, k, "foundations_for_query", [Predicate.gte("cited_by", min_cited)]
+        )
+        edges = await self._cites_edges_among([p.openalex_id for p in papers])
+        return Subgraph(papers=papers, edges=edges)
+
+    async def _vector_search_papers(
+        self, query_vec: list[float], k: int, query_name: str, predicates: list[Any] | None = None
+    ) -> list[Paper]:
+        """Run a vector search for papers, optionally filtered, nearest first.
+
+        Parameters
+        ----------
+        query_vec : list[float]
+            The query embedding.
+        k : int
+            The maximum number of papers to return.
+        query_name : str
+            A query name carried for instance-side diagnostics.
+        predicates : list[Any] | None
+            Filters applied to the hits after the nearest-k search.
+
+        Returns
+        -------
+        list[Paper]
+            Up to k matching papers, most similar first.
+        """
+        search = g().vector_search_nodes(config.HELIX_PAPER_LABEL, config.HELIX_EMBEDDING_FIELD, query_vec, k)
+        for predicate in predicates or []:
+            search = search.where(predicate)
+        batch = read_batch().var_as("hits", search.project([Projection.property(field) for field in _PAPER_FIELDS]))
+        result = await self._read(batch.returning(["hits"]), query_name)
+        return [_to_paper(props) for props in result["hits"]["properties"]]
+
+    async def _cites_edges_among(self, ids: list[str]) -> list[Edge]:
+        """Return the cites edges whose endpoints are both in the given paper set.
+
+        Parameters
+        ----------
+        ids : list[str]
+            The openalex ids to keep edges within.
+
+        Returns
+        -------
+        list[Edge]
+            The cites edges between members of the set.
+        """
+        if not ids:
+            return []
+        kept = set(ids)
+        batch = read_batch()
+        for index, paper_id in enumerate(ids):
+            batch = batch.var_as(f"out{index}", _paper_by_id(paper_id).out("cites").dedup().value_map(["openalex_id"]))
+        result = await self._read(batch.returning([f"out{index}" for index in range(len(ids))]), "cites_edges_among")
+        edges = []
+        for index, paper_id in enumerate(ids):
+            for props in result[f"out{index}"]["properties"]:
+                if props["openalex_id"] in kept:
+                    edges.append(Edge(src=paper_id, dst=props["openalex_id"], kind="cites"))
+        return edges
 
     async def _read(self, batch: Any, name: str) -> Any:
         """Send a read batch to the instance and return its parsed response.

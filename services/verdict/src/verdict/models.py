@@ -81,7 +81,7 @@ class Edge(_Model):
 
     src: str
     dst: str
-    kind: Literal["cites", "about", "has_embedding"]
+    kind: Literal["cites", "about"]
 
 
 class Subgraph(_Model):

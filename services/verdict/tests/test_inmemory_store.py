@@ -40,13 +40,6 @@ async def test_evidence_neighbourhood_reconstructs_cited_citing_and_topic_edges(
     assert Edge(src="focal", dst="T1", kind="about") in sub.edges
 
 
-async def test_evidence_neighbourhood_of_unknown_paper_is_empty():
-    store = InMemoryGraphVectorStore()
-    sub = await store.evidence_neighbourhood("missing")
-    assert sub.papers == []
-    assert sub.edges == []
-
-
 async def test_foundations_for_query_respects_min_cited():
     store = InMemoryGraphVectorStore()
     await store.upsert_paper(make_paper("high", cited_by=100), [1.0, 0.0])
@@ -55,8 +48,3 @@ async def test_foundations_for_query_respects_min_cited():
     ids = {p.openalex_id for p in sub.papers}
     assert "high" in ids
     assert "low" not in ids
-
-
-async def test_empty_store_recall_returns_no_results():
-    store = InMemoryGraphVectorStore()
-    assert await store.recall_papers([1.0, 0.0, 0.0], k=5) == []

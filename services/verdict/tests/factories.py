@@ -3,7 +3,7 @@
 from verdict.models import Paper
 
 
-def make_paper(openalex_id: str, *, cited_by: int = 10, year: int = 2020) -> Paper:
+def make_paper(openalex_id: str, *, cited_by: int = 10, year: int = 2020, is_retracted: bool = False) -> Paper:
     """Build a Paper with sensible test defaults."""
     return Paper(
         openalex_id=openalex_id,
@@ -12,6 +12,6 @@ def make_paper(openalex_id: str, *, cited_by: int = 10, year: int = 2020) -> Pap
         year=year,
         abstract="a",
         cited_by=cited_by,
-        is_retracted=False,
+        is_retracted=is_retracted,
         venue=None,
     )
