@@ -91,6 +91,14 @@ class Subgraph(_Model):
     edges: list[Edge]
 
 
+class StanceJudgement(_Model):
+    """An LLM's stance reading of one paper's abstract against the claim."""
+
+    stance: Stance = Field(description="The paper's 4-way stance toward the claim.")
+    snippet: str = Field(description="A short quote from the abstract grounding the stance.")
+    rationale: str = Field(description="Why the abstract takes this stance toward the claim.")
+
+
 class EvidenceItem(_Model):
     """One paper's LLM-derived stance toward the claim."""
 

@@ -1,7 +1,11 @@
 """Evidence retrieval: gather connected literature for a claim from the graph store."""
 
-from verdict.models import Paper
+from pydantic_ai import Agent
+from pydantic_ai.models import Model
+
+from verdict.models import EvidenceItem, Paper, StanceJudgement
 from verdict.ports import GraphVectorStore
+from verdict.prompting import render_prompt
 
 
 async def gather_candidates(query_vec: list[float], *, store: GraphVectorStore, k: int, min_cited: int) -> list[Paper]:
@@ -34,6 +38,39 @@ async def gather_candidates(query_vec: list[float], *, store: GraphVectorStore, 
         neighbourhood = await store.evidence_neighbourhood(seed.openalex_id)
         candidates.extend(neighbourhood.papers)
     return _unique_unretracted(candidates)
+
+
+async def score_stances(claim: str, papers: list[Paper], *, model: Model) -> list[EvidenceItem]:
+    """Score each candidate paper's stance toward the claim with an LLM.
+
+    Parameters
+    ----------
+    claim : str
+        The claim under verification.
+    papers : list[Paper]
+        The candidate papers to judge.
+    model : Model
+        The model that reads each abstract and returns a stance judgement.
+
+    Returns
+    -------
+    list[EvidenceItem]
+        One evidence item per paper, in input order, carrying the model's stance.
+    """
+    agent = Agent(model=model, output_type=StanceJudgement, system_prompt=render_prompt("stance_system.j2"))
+    items: list[EvidenceItem] = []
+    for paper in papers:
+        prompt = render_prompt("stance_user.j2", claim=claim, title=paper.title, abstract=paper.abstract)
+        judgement = (await agent.run(prompt)).output
+        items.append(
+            EvidenceItem(
+                paper=paper,
+                stance=judgement.stance,
+                snippet=judgement.snippet,
+                rationale=judgement.rationale,
+            )
+        )
+    return items
 
 
 def _unique_unretracted(papers: list[Paper]) -> list[Paper]:
