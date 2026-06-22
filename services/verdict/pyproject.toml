@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Claim-verification assistant: citation-graph retrieval with a cross-family LLM council that refutes to fake consensus — verdict service"
 requires-python = ">=3.12"
 dependencies = [
+    "helix-db>=0.1.0",
     "httpx>=0.28.1",
     "numpy>=2.4.6",
     "pyalex>=0.21",

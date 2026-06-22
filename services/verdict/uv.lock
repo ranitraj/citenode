@@ -1025,6 +1025,15 @@ wheels = [
 ]
 
 [[package]]
+name = "helix-db"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/c1/78709ab2bf9d0d0c35b276f4bc9d4ca99f3e8dc35e5060b761ebbe710c23/helix_db-0.1.0.tar.gz", hash = "sha256:70be204ca633fa6071ec84fba48a8e537af581b3d78743ecea8efa999b0894dc", size = 23935, upload-time = "2026-06-08T09:34:41.467Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/25/e39ae863363c337fcac71196ff92259355c81246a6da381a252c4f9397a2/helix_db-0.1.0-py3-none-any.whl", hash = "sha256:7944d9873101443aa3bfc504b39ef2226da2d93cddf15d7574b04c9082be4af2", size = 21428, upload-time = "2026-06-08T09:34:40.145Z" },
+]
+
+[[package]]
 name = "hf-xet"
 version = "1.4.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3195,6 +3204,7 @@ name = "verdict"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "helix-db" },
     { name = "httpx" },
     { name = "numpy" },
     { name = "pyalex" },
@@ -3214,6 +3224,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "helix-db", specifier = ">=0.1.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pyalex", specifier = ">=0.21" },
