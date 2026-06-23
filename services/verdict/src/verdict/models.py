@@ -55,6 +55,7 @@ class CapReason(StrEnum):
 
     COUNCIL_DISAGREEMENT = "council_disagreement"
     LOW_CONCORDANCE = "low_concordance"
+    HIGH_UNCERTAINTY = "high_self_reported_uncertainty"
 
 
 class _Model(BaseModel):

@@ -26,3 +26,6 @@ CONFIDENCE_MODERATE_MIN = 0.3
 
 # Kendall's W below this floor marks the verdict unsettled and caps the band one step.
 KENDALLS_W_UNSETTLED_FLOOR = 0.4
+
+# Cheap-pass self-uncertainty at/above this floor caps the confidence band one step.
+SELF_UNCERTAINTY_CAP_FLOOR = 0.5

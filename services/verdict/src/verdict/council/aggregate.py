@@ -214,21 +214,45 @@ def compute_confidence(signals: AgreementSignals, balance: EvidenceBalance) -> C
     Confidence
         The score, discrete band, and a short basis string.
     """
-    score = abs(balance.weighted_lean)
-    base_index = _base_band_index(score)
-
     w_caps = (
         signals.kendalls_w is not None
         and signals.kendalls_w < config.KENDALLS_W_UNSETTLED_FLOOR
         and not signals.low_information
     )
-    unsettled = signals.has_disagreement or w_caps
-    index = max(0, base_index - 1) if unsettled else base_index
+    cap_reason = None
+    if signals.has_disagreement:
+        cap_reason = CapReason.COUNCIL_DISAGREEMENT
+    elif w_caps:
+        cap_reason = CapReason.LOW_CONCORDANCE
+    return confidence_from_lean(balance.weighted_lean, cap_reason=cap_reason)
+
+
+def confidence_from_lean(lean: float, *, cap_reason: CapReason | None) -> Confidence:
+    """Build a confidence from the evidence lean, optionally capped one band.
+
+    The band base comes from `|lean|`. A non-None `cap_reason` lowers the band by
+    one step (never below the lowest) and is recorded in the basis; a cap can only
+    lower the band, never raise it.
+
+    Parameters
+    ----------
+    lean : float
+        The signed evidence lean in [-1, 1]; its magnitude sets the base band.
+    cap_reason : CapReason | None
+        Why the band is capped one step, or None to leave it uncapped.
+
+    Returns
+    -------
+    Confidence
+        The score, discrete band, and a short basis string.
+    """
+    score = abs(lean)
+    base_index = _base_band_index(score)
+    index = max(0, base_index - 1) if cap_reason is not None else base_index
 
     basis = f"balance |lean|={score:.2f}"
-    if unsettled:
-        reason = CapReason.COUNCIL_DISAGREEMENT if signals.has_disagreement else CapReason.LOW_CONCORDANCE
-        basis += f", capped one band ({reason})"
+    if cap_reason is not None:
+        basis += f", capped one band ({cap_reason})"
     return Confidence(score=score, band=_BANDS[index], basis=basis)
 
 

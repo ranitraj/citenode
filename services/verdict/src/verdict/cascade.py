@@ -1,6 +1,31 @@
 """Cheap verification pass and the evidence-side escalation gate."""
 
-from verdict.models import DraftVerdict, EvidenceSet, Verdict
+from verdict import config
+from verdict.council.aggregate import confidence_from_lean
+from verdict.models import CapReason, Confidence, DraftVerdict, EvidenceBalance, EvidenceSet, Verdict
+
+
+def cheap_confidence(draft: DraftVerdict, balance: EvidenceBalance) -> Confidence:
+    """Score cheap-pass confidence from the balance, capped by self-uncertainty.
+
+    The band base comes from the evidence balance; the draft's self-reported
+    uncertainty may only lower it, never raise it, since a model's own
+    confidence is poorly calibrated upward.
+
+    Parameters
+    ----------
+    draft : DraftVerdict
+        The cheap pass's verdict, whose self-uncertainty may cap the band.
+    balance : EvidenceBalance
+        The evidence balance whose weighted lean sets the base band.
+
+    Returns
+    -------
+    Confidence
+        The score, discrete band, and a short basis string.
+    """
+    cap_reason = CapReason.HIGH_UNCERTAINTY if draft.self_uncertainty >= config.SELF_UNCERTAINTY_CAP_FLOOR else None
+    return confidence_from_lean(balance.weighted_lean, cap_reason=cap_reason)
 
 
 def should_escalate(evidence: EvidenceSet, draft: DraftVerdict, *, escalation_threshold: float) -> bool:
