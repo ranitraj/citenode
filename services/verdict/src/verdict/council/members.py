@@ -74,11 +74,40 @@ def apply_grounding_guard(verdict: MemberVerdict, evidence: EvidenceSet) -> tupl
     tuple[MemberVerdict, list[str]]
         The grounded verdict and the ids of grounded but stance-mismatched citations.
     """
-    derived = {item.paper.openalex_id: item.stance for item in evidence.items}
-    supporting, supporting_dissent = _partition(verdict.supporting_ids, Stance.SUPPORTS, derived)
-    contradicting, contradicting_dissent = _partition(verdict.contradicting_ids, Stance.CONTRADICTS, derived)
+    supporting, contradicting, dissent = ground_citations(verdict.supporting_ids, verdict.contradicting_ids, evidence)
     grounded = verdict.model_copy(update={"supporting_ids": supporting, "contradicting_ids": contradicting})
-    return grounded, supporting_dissent + contradicting_dissent
+    return grounded, dissent
+
+
+def ground_citations(
+    supporting_ids: list[str], contradicting_ids: list[str], evidence: EvidenceSet
+) -> tuple[list[str], list[str], list[str]]:
+    """Keep only cited ids grounded in the evidence with a matching stance.
+
+    Shared by the member and chairman stages: an id survives only when its paper is
+    a retrieved ``EvidenceItem`` and the list it appears in matches that paper's
+    derived stance. Ungrounded ids are dropped; grounded but stance-flipped ids are
+    returned separately as dissent.
+
+    Parameters
+    ----------
+    supporting_ids : list[str]
+        The ids asserted to support the claim.
+    contradicting_ids : list[str]
+        The ids asserted to contradict the claim.
+    evidence : EvidenceSet
+        The evidence whose items carry the derived stance per paper.
+
+    Returns
+    -------
+    tuple[list[str], list[str], list[str]]
+        The grounded supporting ids, the grounded contradicting ids, and the
+        grounded but stance-mismatched ids.
+    """
+    derived = {item.paper.openalex_id: item.stance for item in evidence.items}
+    supporting, supporting_dissent = _partition(supporting_ids, Stance.SUPPORTS, derived)
+    contradicting, contradicting_dissent = _partition(contradicting_ids, Stance.CONTRADICTS, derived)
+    return supporting, contradicting, supporting_dissent + contradicting_dissent
 
 
 async def _draft_member(claim: str, evidence: EvidenceSet, model: Model) -> MemberVerdict:

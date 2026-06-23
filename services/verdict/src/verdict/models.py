@@ -209,6 +209,16 @@ class Confidence(_Model):
     basis: str
 
 
+class ChairmanVerdict(_Model):
+    """The chairman's reconciled verdict, grounded citations, synthesis, and dissent."""
+
+    verdict: Verdict = Field(description="The single verdict reconciled from the member drafts.")
+    supporting_ids: list[str] = Field(description="Grounded ids of retrieved papers that support the claim.")
+    contradicting_ids: list[str] = Field(description="Grounded ids of retrieved papers that contradict the claim.")
+    synthesis: str = Field(description="Prose synthesis of the verdict; required, never null.")
+    dissent: str | None = Field(description="The strongest minority report, or null when members agreed.")
+
+
 class CouncilOutput(_Model):
     """The council stage's members, signals, and chairman synthesis."""
 

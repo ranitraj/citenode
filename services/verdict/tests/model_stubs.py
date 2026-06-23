@@ -139,6 +139,47 @@ def member_verdict_model(
     return structured_function_model(decide, model_name=model_name)
 
 
+def chairman_verdict_model(
+    *,
+    verdict: Verdict,
+    supporting: list[str] | None = None,
+    contradicting: list[str] | None = None,
+    synthesis: str = "synthesis",
+    dissent: str | None = None,
+) -> FunctionModel:
+    """Build a chairman that emits a synthesis verdict over the member drafts.
+
+    Parameters
+    ----------
+    verdict : Verdict
+        The reconciled verdict to return.
+    supporting : list[str] | None
+        The ids the chairman cites as supporting the claim.
+    contradicting : list[str] | None
+        The ids the chairman cites as contradicting the claim.
+    synthesis : str
+        The chairman's prose synthesis.
+    dissent : str | None
+        The minority report, or ``None`` when the members did not meaningfully disagree.
+
+    Returns
+    -------
+    FunctionModel
+        A model emitting a ``ChairmanVerdict`` argument dict.
+    """
+
+    def decide(_prompt: str) -> dict[str, Any]:
+        return {
+            "verdict": verdict.value,
+            "supporting_ids": supporting or [],
+            "contradicting_ids": contradicting or [],
+            "synthesis": synthesis,
+            "dissent": dissent,
+        }
+
+    return structured_function_model(decide)
+
+
 def triage_model(
     *, checkable: bool, refined: str | None = None, marker: str | None = None, model_name: str | None = None
 ) -> FunctionModel:
