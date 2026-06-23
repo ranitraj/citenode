@@ -2,14 +2,13 @@
 
 from unittest.mock import AsyncMock
 
-from pydantic_ai.models.function import FunctionModel
 from verdict import config
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.models import Edge, EvidenceItem, EvidenceSet, Stance
 from verdict.retrieval import gather_candidates, gather_evidence, score_stances
 
 from tests.factories import make_paper
-from tests.model_stubs import structured_function_model
+from tests.model_stubs import stance_model
 
 
 def _embedder(vector: list[float]) -> AsyncMock:
@@ -17,16 +16,6 @@ def _embedder(vector: list[float]) -> AsyncMock:
     embedder = AsyncMock()
     embedder.embed.return_value = vector
     return embedder
-
-
-def _stance_for(title_to_stance: dict[str, Stance]) -> FunctionModel:
-    """Build a model that returns a stance keyed on the paper title in the prompt."""
-
-    def decide(prompt: str) -> dict[str, object]:
-        stance = next((s for title, s in title_to_stance.items() if title in prompt), Stance.NEUTRAL)
-        return {"stance": stance.value, "snippet": "snip", "rationale": "why"}
-
-    return structured_function_model(decide)
 
 
 async def test_gather_candidates_unions_recall_foundations_and_neighbours():
@@ -65,7 +54,7 @@ async def test_gather_candidates_drops_retracted_papers():
 
 async def test_score_stances_returns_one_evidence_item_per_paper():
     papers = [make_paper("P1"), make_paper("P2")]
-    model = _stance_for({"P1": Stance.SUPPORTS, "P2": Stance.SUPPORTS})
+    model = stance_model({"P1": Stance.SUPPORTS, "P2": Stance.SUPPORTS})
 
     items = await score_stances("a claim", papers, model=model)
 
@@ -76,7 +65,7 @@ async def test_score_stances_returns_one_evidence_item_per_paper():
 
 async def test_score_stances_judges_each_paper_independently():
     papers = [make_paper("PRO"), make_paper("CON"), make_paper("OFF")]
-    model = _stance_for({"PRO": Stance.SUPPORTS, "CON": Stance.CONTRADICTS, "OFF": Stance.OFF_TOPIC})
+    model = stance_model({"PRO": Stance.SUPPORTS, "CON": Stance.CONTRADICTS, "OFF": Stance.OFF_TOPIC})
 
     items = await score_stances("a claim", papers, model=model)
 
@@ -85,7 +74,7 @@ async def test_score_stances_judges_each_paper_independently():
 
 
 async def test_score_stances_carries_the_llm_snippet_and_rationale():
-    model = _stance_for({"P1": Stance.SUPPORTS})
+    model = stance_model({"P1": Stance.SUPPORTS})
 
     (item,) = await score_stances("a claim", [make_paper("P1")], model=model)
 
@@ -94,7 +83,7 @@ async def test_score_stances_carries_the_llm_snippet_and_rationale():
 
 
 async def test_score_stances_of_no_papers_is_empty():
-    model = _stance_for({})
+    model = stance_model({})
 
     assert await score_stances("a claim", [], model=model) == []
 
@@ -103,7 +92,7 @@ async def test_gather_evidence_builds_an_evidence_set_from_recalled_papers():
     store = InMemoryGraphVectorStore()
     await store.upsert_paper(make_paper("PRO"), [1.0, 0.0])
     await store.upsert_paper(make_paper("CON"), [0.9, 0.1])
-    model = _stance_for({"PRO": Stance.SUPPORTS, "CON": Stance.CONTRADICTS})
+    model = stance_model({"PRO": Stance.SUPPORTS, "CON": Stance.CONTRADICTS})
 
     evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
 
@@ -115,7 +104,7 @@ async def test_gather_evidence_builds_an_evidence_set_from_recalled_papers():
 
 async def test_gather_evidence_with_no_candidates_is_empty_with_a_coverage_note():
     evidence = await gather_evidence(
-        "a claim", store=InMemoryGraphVectorStore(), embedder=_embedder([1.0, 0.0]), model=_stance_for({}), k=5
+        "a claim", store=InMemoryGraphVectorStore(), embedder=_embedder([1.0, 0.0]), model=stance_model({}), k=5
     )
 
     assert evidence.items == []
@@ -128,7 +117,7 @@ async def test_gather_evidence_excludes_retracted_papers():
     store = InMemoryGraphVectorStore()
     await store.upsert_paper(make_paper("ok"), [1.0, 0.0])
     await store.upsert_paper(make_paper("bad", is_retracted=True), [0.99, 0.01])
-    model = _stance_for({"ok": Stance.SUPPORTS, "bad": Stance.SUPPORTS})
+    model = stance_model({"ok": Stance.SUPPORTS, "bad": Stance.SUPPORTS})
 
     evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
 
@@ -141,7 +130,7 @@ async def test_gather_evidence_scores_only_the_top_weighted_papers_within_budget
     await store.upsert_paper(make_paper("high", cited_by=1000), [1.0, 0.0])
     await store.upsert_paper(make_paper("mid", cited_by=100), [1.0, 0.0])
     await store.upsert_paper(make_paper("low", cited_by=1), [1.0, 0.0])
-    model = _stance_for({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
+    model = stance_model({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
 
     evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
 
@@ -154,7 +143,7 @@ async def test_gather_evidence_notes_truncation_in_coverage_note(monkeypatch):
     await store.upsert_paper(make_paper("high", cited_by=1000), [1.0, 0.0])
     await store.upsert_paper(make_paper("mid", cited_by=100), [1.0, 0.0])
     await store.upsert_paper(make_paper("low", cited_by=1), [1.0, 0.0])
-    model = _stance_for({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
+    model = stance_model({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
 
     evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
 

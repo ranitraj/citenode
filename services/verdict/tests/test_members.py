@@ -5,7 +5,7 @@ from verdict.council.members import QuorumNotReached, apply_grounding_guard, dra
 from verdict.models import EvidenceItem, EvidenceSet, MemberVerdict, Stance, Verdict
 
 from tests.factories import make_balance, make_paper
-from tests.model_stubs import structured_function_model
+from tests.model_stubs import failing_model, member_verdict_model
 
 
 def _evidence(stances: dict[str, Stance]) -> EvidenceSet:
@@ -14,25 +14,6 @@ def _evidence(stances: dict[str, Stance]) -> EvidenceSet:
         for paper_id, stance in stances.items()
     ]
     return EvidenceSet(items=items, balance=make_balance(0.0), coverage_note="n")
-
-
-def _member_model(name: str, *, supporting: list[str], contradicting: list[str] | None = None):
-    def decide(_prompt: str) -> dict[str, object]:
-        return {
-            "verdict": Verdict.SUPPORTED.value,
-            "supporting_ids": supporting,
-            "contradicting_ids": contradicting or [],
-            "rationale": "r",
-        }
-
-    return structured_function_model(decide, model_name=name)
-
-
-def _failing_model(name: str):
-    def decide(_prompt: str) -> dict[str, object]:
-        raise RuntimeError("member crashed")
-
-    return structured_function_model(decide, model_name=name)
 
 
 class _Provider:
@@ -84,7 +65,10 @@ def test_grounding_flags_a_stance_mismatch_as_dissent():
 async def test_draft_member_verdicts_grounds_each_member():
     evidence = _evidence({"P_sup": Stance.SUPPORTS, "P_con": Stance.CONTRADICTS})
     provider = _Provider(
-        [_member_model(f"m{index}", supporting=["P_sup"], contradicting=["P_con"]) for index in range(4)]
+        [
+            member_verdict_model(supporting=["P_sup"], contradicting=["P_con"], model_name=f"m{index}")
+            for index in range(4)
+        ]
     )
 
     verdicts = await draft_member_verdicts("a claim", evidence, provider=provider)
@@ -95,7 +79,9 @@ async def test_draft_member_verdicts_grounds_each_member():
 
 async def test_draft_member_verdicts_applies_the_grounding_guard():
     evidence = _evidence({"P": Stance.SUPPORTS})
-    provider = _Provider([_member_model(f"m{index}", supporting=["P", "ghost"]) for index in range(4)])
+    provider = _Provider(
+        [member_verdict_model(supporting=["P", "ghost"], model_name=f"m{index}") for index in range(4)]
+    )
 
     verdicts = await draft_member_verdicts("a claim", evidence, provider=provider)
 
@@ -106,10 +92,10 @@ async def test_draft_member_verdicts_survives_one_failed_member():
     evidence = _evidence({"P": Stance.SUPPORTS})
     provider = _Provider(
         [
-            _member_model("m0", supporting=["P"]),
-            _member_model("m1", supporting=["P"]),
-            _member_model("m2", supporting=["P"]),
-            _failing_model("m3"),
+            member_verdict_model(supporting=["P"], model_name="m0"),
+            member_verdict_model(supporting=["P"], model_name="m1"),
+            member_verdict_model(supporting=["P"], model_name="m2"),
+            failing_model(model_name="m3"),
         ]
     )
 
@@ -122,10 +108,10 @@ async def test_draft_member_verdicts_raises_when_quorum_not_met():
     evidence = _evidence({"P": Stance.SUPPORTS})
     provider = _Provider(
         [
-            _member_model("m0", supporting=["P"]),
-            _member_model("m1", supporting=["P"]),
-            _failing_model("m2"),
-            _failing_model("m3"),
+            member_verdict_model(supporting=["P"], model_name="m0"),
+            member_verdict_model(supporting=["P"], model_name="m1"),
+            failing_model(model_name="m2"),
+            failing_model(model_name="m3"),
         ]
     )
 

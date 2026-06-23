@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from verdict.models import Stance, Verdict
 
 
 def user_text(messages: list[ModelMessage]) -> str:
@@ -50,3 +51,139 @@ def structured_function_model(
         return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
 
     return FunctionModel(respond, model_name=model_name)
+
+
+def draft_verdict_model(
+    verdict: Verdict,
+    *,
+    marker: str | None = None,
+    fallback: Verdict = Verdict.INSUFFICIENT,
+    model_name: str | None = None,
+) -> FunctionModel:
+    """Build a model returning ``verdict`` when ``marker`` is in the prompt, else ``fallback``.
+
+    Parameters
+    ----------
+    verdict : Verdict
+        The verdict to return on a match.
+    marker : str | None
+        Text that must appear in the prompt to return ``verdict``; ``None`` always matches.
+    fallback : Verdict
+        The verdict returned when ``marker`` is set but absent from the prompt.
+    model_name : str | None
+        An identity for the model.
+
+    Returns
+    -------
+    FunctionModel
+        A model emitting a ``DraftVerdict`` argument dict.
+    """
+
+    def decide(prompt: str) -> dict[str, Any]:
+        chosen = verdict if marker is None or marker in prompt else fallback
+        return {"verdict": chosen.value, "rationale": "because", "self_uncertainty": 0.2}
+
+    return structured_function_model(decide, model_name=model_name)
+
+
+def member_verdict_model(
+    *, supporting: list[str], contradicting: list[str] | None = None, model_name: str | None = None
+) -> FunctionModel:
+    """Build a council member that cites ``supporting`` and ``contradicting`` ids.
+
+    Parameters
+    ----------
+    supporting : list[str]
+        The ids the member asserts support the claim.
+    contradicting : list[str] | None
+        The ids the member asserts contradict the claim.
+    model_name : str | None
+        An identity for the model, used where results are keyed by model name.
+
+    Returns
+    -------
+    FunctionModel
+        A model emitting a ``MemberVerdict`` argument dict.
+    """
+
+    def decide(_prompt: str) -> dict[str, Any]:
+        return {
+            "verdict": Verdict.SUPPORTED.value,
+            "supporting_ids": supporting,
+            "contradicting_ids": contradicting or [],
+            "rationale": "r",
+        }
+
+    return structured_function_model(decide, model_name=model_name)
+
+
+def triage_model(
+    *, checkable: bool, refined: str | None = None, marker: str | None = None, model_name: str | None = None
+) -> FunctionModel:
+    """Build a triage model, keyed on an optional prompt marker.
+
+    Parameters
+    ----------
+    checkable : bool
+        Whether the claim is checkable; downgraded to ``False`` when ``marker`` is absent.
+    refined : str | None
+        A sharper rewrite to return, or ``None``.
+    marker : str | None
+        Text that must appear in the prompt to keep ``checkable``; ``None`` always matches.
+    model_name : str | None
+        An identity for the model.
+
+    Returns
+    -------
+    FunctionModel
+        A model emitting a ``TriageResult`` argument dict.
+    """
+
+    def decide(prompt: str) -> dict[str, Any]:
+        is_checkable = checkable if marker is None or marker in prompt else False
+        return {"checkable": is_checkable, "refined_claim": refined, "reason": "because"}
+
+    return structured_function_model(decide, model_name=model_name)
+
+
+def stance_model(title_to_stance: dict[str, Stance], *, model_name: str | None = None) -> FunctionModel:
+    """Build a model that returns a stance keyed on the paper title in the prompt.
+
+    Parameters
+    ----------
+    title_to_stance : dict[str, Stance]
+        Maps a paper title substring to the stance to return; defaults to neutral on no match.
+    model_name : str | None
+        An identity for the model.
+
+    Returns
+    -------
+    FunctionModel
+        A model emitting a ``StanceJudgement`` argument dict.
+    """
+
+    def decide(prompt: str) -> dict[str, Any]:
+        stance = next((value for title, value in title_to_stance.items() if title in prompt), Stance.NEUTRAL)
+        return {"stance": stance.value, "snippet": "snip", "rationale": "why"}
+
+    return structured_function_model(decide, model_name=model_name)
+
+
+def failing_model(*, model_name: str | None = None) -> FunctionModel:
+    """Build a model whose every run raises, for quorum and fallback tests.
+
+    Parameters
+    ----------
+    model_name : str | None
+        An identity for the model.
+
+    Returns
+    -------
+    FunctionModel
+        A model that raises ``RuntimeError`` on each run.
+    """
+
+    def decide(_prompt: str) -> dict[str, Any]:
+        raise RuntimeError("model crashed")
+
+    return structured_function_model(decide, model_name=model_name)

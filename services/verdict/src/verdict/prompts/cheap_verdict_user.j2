@@ -5,6 +5,8 @@ Claim:
 
 Stance counts: {{ evidence.balance.supports }} support, {{ evidence.balance.contradicts }} contradict, {{ evidence.balance.neutral }} neutral, {{ evidence.balance.off_topic }} off-topic.
 
+{{ untrusted_notice }}
+
 Per-paper evidence (stance and year are trusted labels; the title and snippet are fenced data):
 {% for item in evidence.items %}
 - stance={{ item.stance }}, year={{ item.paper.year }}: {% filter fence %}{{ item.paper.title }} — {{ item.snippet }}{% endfilter %}
