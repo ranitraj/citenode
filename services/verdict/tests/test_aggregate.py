@@ -9,6 +9,7 @@ from verdict.council.aggregate import (
     compute_confidence,
     epistemic_uncertainty,
     has_disagreement,
+    influence_recency_weight,
     kendalls_w,
     summarise_balance,
     weighted_lean,
@@ -182,6 +183,15 @@ def test_summarise_balance_of_no_items_is_all_zero():
     balance = summarise_balance([])
 
     assert balance == EvidenceBalance(supports=0, contradicts=0, neutral=0, off_topic=0, weighted_lean=0.0)
+
+
+def test_influence_recency_weight_is_log1p_cited_by_at_current_year():
+    assert influence_recency_weight(20, config.CURRENT_YEAR) == pytest.approx(math.log1p(20))
+
+
+def test_influence_recency_weight_halves_after_one_half_life():
+    older = influence_recency_weight(20, config.CURRENT_YEAR - config.RECENCY_HALF_LIFE_YEARS)
+    assert older == pytest.approx(math.log1p(20) * 0.5)
 
 
 # --- compute_confidence (balance base; disagreement only caps) -------------

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from verdict import config
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.models import Edge, EvidenceItem, EvidenceSet, Stance
 from verdict.retrieval import gather_candidates, gather_evidence, score_stances
@@ -143,3 +144,29 @@ async def test_gather_evidence_excludes_retracted_papers():
     evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
 
     assert {item.paper.openalex_id for item in evidence.items} == {"ok"}
+
+
+async def test_gather_evidence_scores_only_the_top_weighted_papers_within_budget(monkeypatch):
+    monkeypatch.setattr(config, "MAX_STANCE_CALLS", 2)
+    store = InMemoryGraphVectorStore()
+    await store.upsert_paper(make_paper("high", cited_by=1000), [1.0, 0.0])
+    await store.upsert_paper(make_paper("mid", cited_by=100), [1.0, 0.0])
+    await store.upsert_paper(make_paper("low", cited_by=1), [1.0, 0.0])
+    model = _stance_for({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
+
+    evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
+
+    assert {item.paper.openalex_id for item in evidence.items} == {"high", "mid"}
+
+
+async def test_gather_evidence_notes_truncation_in_coverage_note(monkeypatch):
+    monkeypatch.setattr(config, "MAX_STANCE_CALLS", 2)
+    store = InMemoryGraphVectorStore()
+    await store.upsert_paper(make_paper("high", cited_by=1000), [1.0, 0.0])
+    await store.upsert_paper(make_paper("mid", cited_by=100), [1.0, 0.0])
+    await store.upsert_paper(make_paper("low", cited_by=1), [1.0, 0.0])
+    model = _stance_for({"high": Stance.SUPPORTS, "mid": Stance.SUPPORTS, "low": Stance.SUPPORTS})
+
+    evidence = await gather_evidence("a claim", store=store, embedder=_embedder([1.0, 0.0]), model=model, k=5)
+
+    assert "not scored" in evidence.coverage_note

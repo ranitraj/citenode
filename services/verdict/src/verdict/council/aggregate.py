@@ -136,7 +136,7 @@ def weighted_lean(items: list[EvidenceItem]) -> float:
     for item in items:
         if item.stance is Stance.OFF_TOPIC:
             continue
-        weight = _influence_recency_weight(item.paper.cited_by, item.paper.year)
+        weight = influence_recency_weight(item.paper.cited_by, item.paper.year)
         denominator += weight
         if item.stance is Stance.SUPPORTS:
             numerator += weight
@@ -146,6 +146,26 @@ def weighted_lean(items: list[EvidenceItem]) -> float:
     if denominator <= 0:
         return 0.0
     return numerator / denominator
+
+
+def influence_recency_weight(cited_by: int, year: int) -> float:
+    """Weight a paper by influence discounted for age.
+
+    Parameters
+    ----------
+    cited_by : int
+        The paper's citation count.
+    year : int
+        The paper's publication year.
+
+    Returns
+    -------
+    float
+        ``log1p(cited_by)`` scaled by a recency half-life factor.
+    """
+    age = config.CURRENT_YEAR - year
+    recency_factor: float = 0.5 ** (age / config.RECENCY_HALF_LIFE_YEARS)
+    return math.log1p(cited_by) * recency_factor
 
 
 def summarise_balance(items: list[EvidenceItem]) -> EvidenceBalance:
@@ -228,26 +248,6 @@ def _rank_sum(model: str, rankings: list[list[str]], absent_position: int) -> in
         The summed 1-indexed positions.
     """
     return sum(ranking.index(model) + 1 if model in ranking else absent_position for ranking in rankings)
-
-
-def _influence_recency_weight(cited_by: int, year: int) -> float:
-    """Weight a paper by influence discounted for age.
-
-    Parameters
-    ----------
-    cited_by : int
-        The paper's citation count.
-    year : int
-        The paper's publication year.
-
-    Returns
-    -------
-    float
-        ``log1p(cited_by)`` scaled by a recency half-life factor.
-    """
-    age = config.CURRENT_YEAR - year
-    recency_factor: float = 0.5 ** (age / config.RECENCY_HALF_LIFE_YEARS)
-    return math.log1p(cited_by) * recency_factor
 
 
 def _base_band_index(score: float) -> int:

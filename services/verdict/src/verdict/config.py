@@ -12,6 +12,9 @@ HELIX_EMBEDDING_FIELD = "embedding"
 # A paper counts as foundational only above this citation floor (loose v1 default).
 FOUNDATION_MIN_CITED = 10
 
+# Max per-paper LLM stance calls per claim; excess papers are dropped lowest-weight first.
+MAX_STANCE_CALLS = 30
+
 # Evidence influence is recency-weighted: an item one half-life older counts half.
 # These are loose v1 defaults, calibrated on the gold set.
 CURRENT_YEAR = 2026
