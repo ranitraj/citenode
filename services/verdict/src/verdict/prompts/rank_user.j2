@@ -1,0 +1,17 @@
+Claim:
+{{ claim }}
+
+{{ untrusted_notice }}
+
+Draft verdicts to evaluate, each written by a different member from the same evidence:
+{% for response in responses %}
+Response {{ response.label }}: {% filter fence %}verdict={{ response.verdict.verdict }}; supporting_ids={{ response.verdict.supporting_ids | join(", ") or "none" }}; contradicting_ids={{ response.verdict.contradicting_ids | join(", ") or "none" }}; rationale: {{ response.verdict.rationale }}{% endfilter %}
+{% endfor %}
+
+Reason through these steps before answering:
+1. For each draft, critique it: does its verdict follow from the ids it cites and its rationale, does it
+   engage the contradicting ids rather than only the confirming ones, and does it over-claim beyond them?
+2. From that critique, score each draft on the four criteria.
+3. Order the drafts from best to worst on the weight of those scores.
+
+Then emit the CRITERIA SCORES and FINAL RANKING blocks in the exact format, and nothing else.

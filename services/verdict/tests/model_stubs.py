@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from verdict.models import Stance, Verdict
 
@@ -49,6 +49,28 @@ def structured_function_model(
     def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         args = decide(user_text(messages))
         return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
+
+    return FunctionModel(respond, model_name=model_name)
+
+
+def text_function_model(decide: Callable[[str], str], *, model_name: str | None = None) -> FunctionModel:
+    """Build a model that emits one plain-text response per run from the prompt.
+
+    Parameters
+    ----------
+    decide : Callable[[str], str]
+        Maps the latest user prompt text to the model's text reply.
+    model_name : str | None
+        An identity for the model, used where callers key results by model name.
+
+    Returns
+    -------
+    FunctionModel
+        A model returning the text built from ``decide``.
+    """
+
+    def respond(messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart(content=decide(user_text(messages)))])
 
     return FunctionModel(respond, model_name=model_name)
 
