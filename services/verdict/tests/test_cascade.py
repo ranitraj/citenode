@@ -4,9 +4,9 @@ import pytest
 from pydantic_ai.models.function import FunctionModel
 from verdict import config
 from verdict.cascade import cheap_confidence, cheap_verdict, should_escalate
-from verdict.models import DraftVerdict, EvidenceBalance, EvidenceItem, EvidenceSet, Stance, Verdict
+from verdict.models import DraftVerdict, EvidenceItem, EvidenceSet, Stance, Verdict
 
-from tests.factories import make_paper
+from tests.factories import make_balance, make_paper
 from tests.model_stubs import structured_function_model
 
 
@@ -22,16 +22,8 @@ def _draft_model(
     return structured_function_model(decide)
 
 
-def _balance(
-    *, lean: float, supports: int = 1, contradicts: int = 0, neutral: int = 0, off_topic: int = 0
-) -> EvidenceBalance:
-    return EvidenceBalance(
-        supports=supports, contradicts=contradicts, neutral=neutral, off_topic=off_topic, weighted_lean=lean
-    )
-
-
 def _evidence(*, supports: int, contradicts: int, neutral: int, off_topic: int, lean: float) -> EvidenceSet:
-    balance = _balance(lean=lean, supports=supports, contradicts=contradicts, neutral=neutral, off_topic=off_topic)
+    balance = make_balance(lean, supports=supports, contradicts=contradicts, neutral=neutral, off_topic=off_topic)
     return EvidenceSet(items=[], balance=balance, coverage_note="note")
 
 
@@ -78,7 +70,7 @@ def test_should_escalate_ignores_a_confident_self_uncertainty():
 
 
 def test_cheap_confidence_is_high_for_a_strong_balance_and_low_uncertainty():
-    confidence = cheap_confidence(_draft(Verdict.SUPPORTED, self_uncertainty=0.1), _balance(lean=0.9))
+    confidence = cheap_confidence(_draft(Verdict.SUPPORTED, self_uncertainty=0.1), make_balance(lean=0.9))
 
     assert confidence.band == "high"
     assert confidence.score == pytest.approx(0.9)
@@ -86,14 +78,14 @@ def test_cheap_confidence_is_high_for_a_strong_balance_and_low_uncertainty():
 
 def test_cheap_confidence_caps_one_band_at_high_self_uncertainty():
     confidence = cheap_confidence(
-        _draft(Verdict.SUPPORTED, self_uncertainty=config.SELF_UNCERTAINTY_CAP_FLOOR), _balance(lean=0.9)
+        _draft(Verdict.SUPPORTED, self_uncertainty=config.SELF_UNCERTAINTY_CAP_FLOOR), make_balance(lean=0.9)
     )
 
     assert confidence.band == "moderate"
 
 
 def test_cheap_confidence_uncertainty_only_lowers_never_below_low():
-    confidence = cheap_confidence(_draft(Verdict.SUPPORTED, self_uncertainty=0.99), _balance(lean=0.1))
+    confidence = cheap_confidence(_draft(Verdict.SUPPORTED, self_uncertainty=0.99), make_balance(lean=0.1))
 
     assert confidence.band == "low"
 
@@ -110,7 +102,7 @@ async def test_cheap_verdict_returns_a_draft_verdict():
 
 async def test_cheap_verdict_renders_the_evidence_into_the_prompt():
     item = EvidenceItem(paper=make_paper("W1"), stance=Stance.SUPPORTS, snippet="MARKER_SNIPPET", rationale="r")
-    evidence = EvidenceSet(items=[item], balance=_balance(lean=0.5), coverage_note="note")
+    evidence = EvidenceSet(items=[item], balance=make_balance(lean=0.5), coverage_note="note")
     model = _draft_model(Verdict.SUPPORTED, marker="MARKER_SNIPPET", fallback=Verdict.INSUFFICIENT)
 
     draft = await cheap_verdict("a claim", evidence, model=model)

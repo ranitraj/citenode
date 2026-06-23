@@ -21,16 +21,12 @@ from verdict.models import (
     Stance,
 )
 
-from tests.factories import make_paper
+from tests.factories import make_balance, make_paper
 
 
 def _item(stance: Stance, cited_by: int, year: int = config.CURRENT_YEAR) -> EvidenceItem:
     paper = make_paper(f"W-{stance}-{cited_by}-{year}", cited_by=cited_by, year=year)
     return EvidenceItem(paper=paper, stance=stance, snippet="s", rationale="r")
-
-
-def _balance(lean: float) -> EvidenceBalance:
-    return EvidenceBalance(supports=1, contradicts=0, neutral=0, off_topic=0, weighted_lean=lean)
 
 
 # --- Kendall's W -----------------------------------------------------------
@@ -202,44 +198,44 @@ def _signals(*, w: float | None, disagree: bool, low_info: bool, eu: float | Non
 
 
 def test_compute_confidence_high_balance_high_agreement_stays_high():
-    conf = compute_confidence(_signals(w=0.9, disagree=False, low_info=False), _balance(0.8))
+    conf = compute_confidence(_signals(w=0.9, disagree=False, low_info=False), make_balance(0.8))
     assert conf.band == "high"
     assert conf.score == pytest.approx(0.8)
 
 
 def test_compute_confidence_uses_absolute_lean_so_refuting_evidence_can_be_high():
-    conf = compute_confidence(_signals(w=0.9, disagree=False, low_info=False), _balance(-0.7))
+    conf = compute_confidence(_signals(w=0.9, disagree=False, low_info=False), make_balance(-0.7))
     assert conf.band == "high"
     assert conf.score == pytest.approx(0.7)
 
 
 def test_compute_confidence_low_w_caps_high_band_down_one_step():
-    conf = compute_confidence(_signals(w=0.2, disagree=False, low_info=False), _balance(0.8))
+    conf = compute_confidence(_signals(w=0.2, disagree=False, low_info=False), make_balance(0.8))
     assert conf.band == "moderate"
 
 
 def test_compute_confidence_low_information_disables_the_w_cap():
     # At small N, W is meaningless → it must not cap the band.
-    conf = compute_confidence(_signals(w=0.2, disagree=False, low_info=True), _balance(0.8))
+    conf = compute_confidence(_signals(w=0.2, disagree=False, low_info=True), make_balance(0.8))
     assert conf.band == "high"
 
 
 def test_compute_confidence_disagreement_caps_even_with_high_w():
-    conf = compute_confidence(_signals(w=0.95, disagree=True, low_info=False), _balance(0.8))
+    conf = compute_confidence(_signals(w=0.95, disagree=True, low_info=False), make_balance(0.8))
     assert conf.band == "moderate"
 
 
 def test_compute_confidence_disagreement_caps_even_when_low_information():
     # low_information disables the W cap but not the has_disagreement cap.
-    conf = compute_confidence(_signals(w=0.2, disagree=True, low_info=True), _balance(0.8))
+    conf = compute_confidence(_signals(w=0.2, disagree=True, low_info=True), make_balance(0.8))
     assert conf.band == "moderate"
 
 
 def test_compute_confidence_never_raises_a_mixed_balance_to_high():
-    conf = compute_confidence(_signals(w=0.99, disagree=False, low_info=False), _balance(0.4))
+    conf = compute_confidence(_signals(w=0.99, disagree=False, low_info=False), make_balance(0.4))
     assert conf.band == "moderate"
 
 
 def test_compute_confidence_cap_never_drops_below_low():
-    conf = compute_confidence(_signals(w=0.1, disagree=True, low_info=False), _balance(0.1))
+    conf = compute_confidence(_signals(w=0.1, disagree=True, low_info=False), make_balance(0.1))
     assert conf.band == "low"

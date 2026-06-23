@@ -72,6 +72,7 @@ Readers see the interface before implementation details.
 - **SOLID** — single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion.
 - **DRY** — before writing new code, search for an existing utility that does the job and reuse it. If similar logic exists elsewhere, refactor the existing one instead of duplicating. Match parameter names/order of nearby functions for consistency.
 - **Python best practices** — type hints everywhere, prefer dataclasses/Pydantic models over raw dicts, use `pathlib` over `os.path`.
+- **Closed vocabularies as `StrEnum`** — model a fixed set of string values as a `StrEnum` (with a one-line docstring), not a bare `Literal` or string constants repeated across modules. Centralise it once so callers share one source of truth.
 
 ---
 
