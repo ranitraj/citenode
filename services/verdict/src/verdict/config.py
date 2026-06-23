@@ -1,5 +1,20 @@
 """Configuration constants for the verdict pipeline: service wiring and calibration."""
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Environment-sourced secrets and OpenRouter model selection."""
+
+    openrouter_api_key: str = ""
+    openrouter_cheap_model: str = ""
+    openrouter_member_models: list[str] = Field(default_factory=list)
+    openrouter_chairman_model: str = ""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
 # Embeddings service (TEI) endpoint path; the host is injected per deployment.
 EMBEDDINGS_EMBED_PATH = "/embed"
 
