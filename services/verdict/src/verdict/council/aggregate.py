@@ -5,7 +5,9 @@ import math
 from verdict import config
 from verdict.models import (
     AgreementSignals,
+    CapReason,
     Confidence,
+    ConfidenceBand,
     EvidenceBalance,
     EvidenceItem,
     RankAgg,
@@ -13,7 +15,7 @@ from verdict.models import (
 )
 from verdict.vectors import cosine_similarity
 
-_BANDS = ("low", "moderate", "high")
+_BANDS = (ConfidenceBand.LOW, ConfidenceBand.MODERATE, ConfidenceBand.HIGH)
 
 
 def kendalls_w(rankings: list[list[str]]) -> tuple[float | None, bool]:
@@ -225,7 +227,7 @@ def compute_confidence(signals: AgreementSignals, balance: EvidenceBalance) -> C
 
     basis = f"balance |lean|={score:.2f}"
     if unsettled:
-        reason = "council disagreement" if signals.has_disagreement else "low concordance"
+        reason = CapReason.COUNCIL_DISAGREEMENT if signals.has_disagreement else CapReason.LOW_CONCORDANCE
         basis += f", capped one band ({reason})"
     return Confidence(score=score, band=_BANDS[index], basis=basis)
 

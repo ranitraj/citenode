@@ -1,7 +1,7 @@
 """Typed domain models for the claim-verification pipeline."""
 
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,6 +33,28 @@ class Path(StrEnum):
 
     CHEAP = "cheap"
     COUNCIL = "council"
+
+
+class EdgeKind(StrEnum):
+    """The directed relation an edge encodes between two graph nodes."""
+
+    CITES = "cites"
+    ABOUT = "about"
+
+
+class ConfidenceBand(StrEnum):
+    """The discrete confidence band, ordered from least to most confident."""
+
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+
+
+class CapReason(StrEnum):
+    """Why a confidence band was capped one step lower than the evidence base."""
+
+    COUNCIL_DISAGREEMENT = "council_disagreement"
+    LOW_CONCORDANCE = "low_concordance"
 
 
 class _Model(BaseModel):
@@ -81,7 +103,7 @@ class Edge(_Model):
 
     src: str
     dst: str
-    kind: Literal["cites", "about"]
+    kind: EdgeKind
 
 
 class Subgraph(_Model):
@@ -182,7 +204,7 @@ class Confidence(_Model):
     """A calibrated confidence score with its discrete band and basis."""
 
     score: UnitInterval
-    band: Literal["high", "moderate", "low"]
+    band: ConfidenceBand
     basis: str
 
 

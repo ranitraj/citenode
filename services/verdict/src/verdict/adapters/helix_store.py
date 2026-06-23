@@ -6,7 +6,7 @@ from typing import Any
 from helixdb import Client, NodeRef, Predicate, Projection, g, read_batch, write_batch
 
 from verdict import config
-from verdict.models import Edge, Paper, Subgraph
+from verdict.models import Edge, EdgeKind, Paper, Subgraph
 
 _PAPER_FIELDS = ("openalex_id", "doi", "title", "year", "abstract", "cited_by", "is_retracted", "venue")
 
@@ -67,7 +67,7 @@ class HelixGraphVectorStore:
             write_batch()
             .var_as("src", _paper_by_id(edge.src))
             .var_as("dst", _paper_by_id(edge.dst))
-            .var_as("edge", g().n(NodeRef.var("src")).add_e(edge.kind, NodeRef.var("dst")))
+            .var_as("edge", g().n(NodeRef.var("src")).add_e(edge.kind.value, NodeRef.var("dst")))
             .returning(["edge"])
         )
         await self._write(batch, "upsert_edge")
@@ -106,15 +106,15 @@ class HelixGraphVectorStore:
         fields = list(_PAPER_FIELDS)
         batch = (
             read_batch()
-            .var_as("cited", _paper_by_id(paper_id).out("cites").dedup().value_map(fields))
-            .var_as("citing", _paper_by_id(paper_id).in_("cites").dedup().value_map(fields))
+            .var_as("cited", _paper_by_id(paper_id).out(EdgeKind.CITES.value).dedup().value_map(fields))
+            .var_as("citing", _paper_by_id(paper_id).in_(EdgeKind.CITES.value).dedup().value_map(fields))
             .returning(["cited", "citing"])
         )
         result = await self._read(batch, "evidence_neighbourhood")
         cited = [_to_paper(props) for props in result["cited"]["properties"]]
         citing = [_to_paper(props) for props in result["citing"]["properties"]]
-        edges = [Edge(src=paper_id, dst=p.openalex_id, kind="cites") for p in cited]
-        edges += [Edge(src=p.openalex_id, dst=paper_id, kind="cites") for p in citing]
+        edges = [Edge(src=paper_id, dst=p.openalex_id, kind=EdgeKind.CITES) for p in cited]
+        edges += [Edge(src=p.openalex_id, dst=paper_id, kind=EdgeKind.CITES) for p in citing]
         return Subgraph(papers=cited + citing, edges=edges)
 
     async def foundations_for_query(self, query_vec: list[float], k: int, min_cited: int) -> Subgraph:
@@ -186,13 +186,15 @@ class HelixGraphVectorStore:
         kept = set(ids)
         batch = read_batch()
         for index, paper_id in enumerate(ids):
-            batch = batch.var_as(f"out{index}", _paper_by_id(paper_id).out("cites").dedup().value_map(["openalex_id"]))
+            batch = batch.var_as(
+                f"out{index}", _paper_by_id(paper_id).out(EdgeKind.CITES.value).dedup().value_map(["openalex_id"])
+            )
         result = await self._read(batch.returning([f"out{index}" for index in range(len(ids))]), "cites_edges_among")
         edges = []
         for index, paper_id in enumerate(ids):
             for props in result[f"out{index}"]["properties"]:
                 if props["openalex_id"] in kept:
-                    edges.append(Edge(src=paper_id, dst=props["openalex_id"], kind="cites"))
+                    edges.append(Edge(src=paper_id, dst=props["openalex_id"], kind=EdgeKind.CITES))
         return edges
 
     async def _read(self, batch: Any, name: str) -> Any:
