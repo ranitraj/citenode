@@ -27,13 +27,17 @@ def user_text(messages: list[ModelMessage]) -> str:
     return ""
 
 
-def structured_function_model(decide: Callable[[str], dict[str, Any]]) -> FunctionModel:
+def structured_function_model(
+    decide: Callable[[str], dict[str, Any]], *, model_name: str | None = None
+) -> FunctionModel:
     """Build a model that emits one structured output per run from the prompt.
 
     Parameters
     ----------
     decide : Callable[[str], dict[str, Any]]
         Maps the latest user prompt text to the output tool's argument dict.
+    model_name : str | None
+        An identity for the model, used where callers key results by model name.
 
     Returns
     -------
@@ -45,4 +49,4 @@ def structured_function_model(decide: Callable[[str], dict[str, Any]]) -> Functi
         args = decide(user_text(messages))
         return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
 
-    return FunctionModel(respond)
+    return FunctionModel(respond, model_name=model_name)

@@ -1,9 +1,60 @@
 """Council member verdicts and the citation grounding guard."""
 
+import asyncio
+
+from pydantic_ai import Agent
+from pydantic_ai.models import Model
+
 from verdict.models import EvidenceSet, MemberVerdict, Stance
+from verdict.ports import ModelProvider
+from verdict.prompting import render_prompt
 
 
-def ground_member_verdict(verdict: MemberVerdict, evidence: EvidenceSet) -> tuple[MemberVerdict, list[str]]:
+class QuorumNotReached(Exception):
+    """Raised when fewer than the required number of council members succeed."""
+
+
+async def draft_member_verdicts(
+    claim: str, evidence: EvidenceSet, *, provider: ModelProvider
+) -> dict[str, MemberVerdict]:
+    """Draft grounded member verdicts concurrently, requiring an N-1 quorum.
+
+    Runs each member model on the same evidence in parallel; a member that raises
+    or fails validation is dropped, and the survivors pass the grounding guard. At
+    least N-1 of N members must succeed, so one failure cannot sink a claim.
+
+    Parameters
+    ----------
+    claim : str
+        The claim under verification.
+    evidence : EvidenceSet
+        The shared evidence each member reasons over.
+    provider : ModelProvider
+        The provider whose member models draft the verdicts.
+
+    Returns
+    -------
+    dict[str, MemberVerdict]
+        The grounded verdict per member, keyed by model name.
+
+    Raises
+    ------
+    QuorumNotReached
+        If fewer than N-1 members succeed.
+    """
+    models = provider.member_models()
+    drafts = await asyncio.gather(*(_draft_member(claim, evidence, model) for model in models), return_exceptions=True)
+    verdicts = {
+        model.model_name: draft
+        for model, draft in zip(models, drafts, strict=True)
+        if not isinstance(draft, BaseException)
+    }
+    if len(verdicts) < len(models) - 1:
+        raise QuorumNotReached(f"only {len(verdicts)} of {len(models)} council members succeeded")
+    return verdicts
+
+
+def apply_grounding_guard(verdict: MemberVerdict, evidence: EvidenceSet) -> tuple[MemberVerdict, list[str]]:
     """Keep only the member citations grounded in the evidence with a matching stance.
 
     A citation survives only when its paper is a retrieved ``EvidenceItem`` and the
@@ -28,6 +79,29 @@ def ground_member_verdict(verdict: MemberVerdict, evidence: EvidenceSet) -> tupl
     contradicting, contradicting_dissent = _partition(verdict.contradicting_ids, Stance.CONTRADICTS, derived)
     grounded = verdict.model_copy(update={"supporting_ids": supporting, "contradicting_ids": contradicting})
     return grounded, supporting_dissent + contradicting_dissent
+
+
+async def _draft_member(claim: str, evidence: EvidenceSet, model: Model) -> MemberVerdict:
+    """Draft one member's verdict from the evidence and apply the grounding guard.
+
+    Parameters
+    ----------
+    claim : str
+        The claim under verification.
+    evidence : EvidenceSet
+        The shared evidence.
+    model : Model
+        The member model that drafts the verdict.
+
+    Returns
+    -------
+    MemberVerdict
+        The member's grounded verdict.
+    """
+    agent = Agent(model=model, output_type=MemberVerdict, system_prompt=render_prompt("member_system.j2"))
+    raw = (await agent.run(render_prompt("member_user.j2", claim=claim, evidence=evidence))).output
+    grounded, _dissent = apply_grounding_guard(raw, evidence)
+    return grounded
 
 
 def _partition(cited_ids: list[str], asserted: Stance, derived: dict[str, Stance]) -> tuple[list[str], list[str]]:

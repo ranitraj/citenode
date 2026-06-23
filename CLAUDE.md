@@ -80,6 +80,8 @@ Readers see the interface before implementation details.
 
 LLM prompts live as **Jinja2 `.j2` templates**, kept separate from code under the package's `prompts/` directory (`src/<package>/prompts/`), with the system prompt and per-call prompt as distinct templates. Render them through a `prompting.py::render_prompt(name, /, **context)` loader — never inline prompt strings in code. The loader uses `StrictUndefined`, so a missing template variable raises rather than rendering empty. Write real prompts (role framing, chain-of-thought, verbatim grounding, abstain-when-thin), not bare data stubs.
 
+Any prompt that ingests external or document-derived text must defend against prompt injection: fence the untrusted text with the `fence` filter (randomized-delimiter spotlighting) and carry the shared `{{ untrusted_notice }}` rule in the system prompt. Lean on output-side enforcement too (constrained `output_type`, grounding checks) — no single layer is sufficient.
+
 ---
 
 ## Code Review
