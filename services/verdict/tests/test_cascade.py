@@ -1,9 +1,25 @@
-"""Tests for the cheap-pass cascade: confidence and the evidence-side escalation gate."""
+"""Tests for the cheap-pass cascade: confidence, escalation gate, and cheap verdict."""
 
 import pytest
+from pydantic_ai.models.function import FunctionModel
 from verdict import config
-from verdict.cascade import cheap_confidence, should_escalate
-from verdict.models import DraftVerdict, EvidenceBalance, EvidenceSet, Verdict
+from verdict.cascade import cheap_confidence, cheap_verdict, should_escalate
+from verdict.models import DraftVerdict, EvidenceBalance, EvidenceItem, EvidenceSet, Stance, Verdict
+
+from tests.factories import make_paper
+from tests.model_stubs import structured_function_model
+
+
+def _draft_model(
+    verdict: Verdict, *, marker: str | None = None, fallback: Verdict = Verdict.INSUFFICIENT
+) -> FunctionModel:
+    """Build a model returning ``verdict`` when ``marker`` is in the prompt, else ``fallback``."""
+
+    def decide(prompt: str) -> dict[str, object]:
+        chosen = verdict if marker is None or marker in prompt else fallback
+        return {"verdict": chosen.value, "rationale": "because", "self_uncertainty": 0.2}
+
+    return structured_function_model(decide)
 
 
 def _balance(
@@ -80,3 +96,23 @@ def test_cheap_confidence_uncertainty_only_lowers_never_below_low():
     confidence = cheap_confidence(_draft(Verdict.SUPPORTED, self_uncertainty=0.99), _balance(lean=0.1))
 
     assert confidence.band == "low"
+
+
+async def test_cheap_verdict_returns_a_draft_verdict():
+    evidence = _evidence(supports=2, contradicts=0, neutral=0, off_topic=0, lean=0.8)
+
+    draft = await cheap_verdict("a claim", evidence, model=_draft_model(Verdict.SUPPORTED))
+
+    assert isinstance(draft, DraftVerdict)
+    assert draft.verdict is Verdict.SUPPORTED
+    assert draft.self_uncertainty == pytest.approx(0.2)
+
+
+async def test_cheap_verdict_renders_the_evidence_into_the_prompt():
+    item = EvidenceItem(paper=make_paper("W1"), stance=Stance.SUPPORTS, snippet="MARKER_SNIPPET", rationale="r")
+    evidence = EvidenceSet(items=[item], balance=_balance(lean=0.5), coverage_note="note")
+    model = _draft_model(Verdict.SUPPORTED, marker="MARKER_SNIPPET", fallback=Verdict.INSUFFICIENT)
+
+    draft = await cheap_verdict("a claim", evidence, model=model)
+
+    assert draft.verdict is Verdict.SUPPORTED

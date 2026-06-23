@@ -1,8 +1,34 @@
 """Cheap verification pass and the evidence-side escalation gate."""
 
+from pydantic_ai import Agent
+from pydantic_ai.models import Model
+
 from verdict import config
 from verdict.council.aggregate import confidence_from_lean
 from verdict.models import CapReason, Confidence, DraftVerdict, EvidenceBalance, EvidenceSet, Verdict
+from verdict.prompting import render_prompt
+
+
+async def cheap_verdict(claim: str, evidence: EvidenceSet, *, model: Model) -> DraftVerdict:
+    """Draft a single-model verdict for the claim from the gathered evidence.
+
+    Parameters
+    ----------
+    claim : str
+        The claim under verification.
+    evidence : EvidenceSet
+        The gathered evidence the verdict must be grounded in.
+    model : Model
+        The cheap model that reads the evidence and returns a draft verdict.
+
+    Returns
+    -------
+    DraftVerdict
+        The cheap pass's verdict, rationale, and self-reported uncertainty.
+    """
+    agent = Agent(model=model, output_type=DraftVerdict, system_prompt=render_prompt("cheap_verdict_system.j2"))
+    prompt = render_prompt("cheap_verdict_user.j2", claim=claim, evidence=evidence)
+    return (await agent.run(prompt)).output
 
 
 def cheap_confidence(draft: DraftVerdict, balance: EvidenceBalance) -> Confidence:

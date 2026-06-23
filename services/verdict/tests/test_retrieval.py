@@ -2,14 +2,14 @@
 
 from unittest.mock import AsyncMock
 
-from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart, UserPromptPart
-from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.function import FunctionModel
 from verdict import config
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.models import Edge, EvidenceItem, EvidenceSet, Stance
 from verdict.retrieval import gather_candidates, gather_evidence, score_stances
 
 from tests.factories import make_paper
+from tests.model_stubs import structured_function_model
 
 
 def _embedder(vector: list[float]) -> AsyncMock:
@@ -19,25 +19,14 @@ def _embedder(vector: list[float]) -> AsyncMock:
     return embedder
 
 
-def _user_text(messages: list[ModelMessage]) -> str:
-    """Return the text of the latest user prompt in a message history."""
-    for message in reversed(messages):
-        for part in message.parts:
-            if isinstance(part, UserPromptPart) and isinstance(part.content, str):
-                return part.content
-    return ""
-
-
 def _stance_for(title_to_stance: dict[str, Stance]) -> FunctionModel:
     """Build a model that returns a stance keyed on the paper title in the prompt."""
 
-    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        prompt = _user_text(messages)
+    def decide(prompt: str) -> dict[str, object]:
         stance = next((s for title, s in title_to_stance.items() if title in prompt), Stance.NEUTRAL)
-        args = {"stance": stance.value, "snippet": "snip", "rationale": "why"}
-        return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
+        return {"stance": stance.value, "snippet": "snip", "rationale": "why"}
 
-    return FunctionModel(respond)
+    return structured_function_model(decide)
 
 
 async def test_gather_candidates_unions_recall_foundations_and_neighbours():
