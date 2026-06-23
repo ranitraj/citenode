@@ -3,11 +3,10 @@ Determine how the paper below bears on this claim.
 Claim:
 {{ claim }}
 
-Paper title: {{ title }}
-Paper abstract:
-<abstract>
-{{ abstract }}
-</abstract>
+Paper (title and abstract):
+{% filter fence %}{{ title }}
+
+{{ abstract }}{% endfilter %}
 
 Reason through these steps before answering:
 1. Is the abstract actually about the claim's subject? If it is not, the stance is off_topic.
