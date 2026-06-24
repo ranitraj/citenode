@@ -56,3 +56,9 @@ EVAL_GOLD_PAPER_CITED_BY = 1
 INGEST_SEED_LIMIT = 25
 INGEST_INCOMING_LIMIT = 10
 INGEST_MAX_PAPERS = 500
+
+# Equal-width confidence bins for the expected-calibration-error metric.
+CALIBRATION_BINS = 10
+
+# Council panel is flagged when effective independent votes fall below this share of members.
+PANEL_INDEPENDENCE_FLOOR = 0.5
