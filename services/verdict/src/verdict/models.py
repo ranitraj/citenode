@@ -220,12 +220,12 @@ class ChairmanVerdict(_Model):
 
 
 class CouncilOutput(_Model):
-    """The council stage's members, signals, and chairman synthesis."""
+    """The council stage's full result: members, agreement signals, chairman synthesis, and confidence."""
 
     members: dict[str, MemberVerdict]
     signals: AgreementSignals
-    chairman_verdict: Verdict
-    synthesis: str
+    chairman: ChairmanVerdict
+    confidence: Confidence
 
 
 class ClaimResult(_Model):

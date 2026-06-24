@@ -1,11 +1,14 @@
 """Shared pydantic-ai model stubs for tests."""
 
+import re
 from collections.abc import Callable
 from typing import Any
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart, UserPromptPart
+from pydantic_ai.models import Model
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from verdict.models import Stance, Verdict
+from verdict.ports import ModelProvider
 
 
 def user_text(messages: list[ModelMessage]) -> str:
@@ -180,6 +183,79 @@ def chairman_verdict_model(
     return structured_function_model(decide)
 
 
+def ranking_by_marker(prompt: str) -> str:
+    """Build a ``FINAL RANKING`` block ordering the ``Response`` labels by their m-marker.
+
+    Each labeled draft carries an ``m<digit>`` marker (its member's rationale); the
+    labels are ordered by that marker so every ranker returns the same ordering,
+    making the peer ranking deterministic regardless of the per-ranker shuffle.
+
+    Parameters
+    ----------
+    prompt : str
+        The rendered rank-stage user prompt.
+
+    Returns
+    -------
+    str
+        A ``FINAL RANKING:`` block, or one with no lines when no markers are found.
+    """
+    headers = list(re.finditer(r"Response ([A-Z]):", prompt))
+    markers: dict[str, str] = {}
+    for index, header in enumerate(headers):
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(prompt)
+        found = re.search(r"m\d", prompt[header.end() : end])
+        if found:
+            markers[header.group(1)] = found.group(0)
+    ordered = sorted(markers, key=lambda label: markers[label])
+    lines = "\n".join(f"{position}. Response {label}" for position, label in enumerate(ordered, start=1))
+    return f"FINAL RANKING:\n{lines}\n"
+
+
+def member_ranker_model(
+    *,
+    supporting: list[str] | None = None,
+    contradicting: list[str] | None = None,
+    verdict: Verdict = Verdict.SUPPORTED,
+    model_name: str | None = None,
+) -> FunctionModel:
+    """Build a council model that drafts a member verdict and ranks by marker.
+
+    Used where members also act as rankers: with output tools present it emits a
+    ``MemberVerdict`` whose rationale is the model name (its ranking marker); with no
+    output tools it returns a marker-ordered ``FINAL RANKING`` block.
+
+    Parameters
+    ----------
+    supporting : list[str] | None
+        The ids this member cites as supporting the claim.
+    contradicting : list[str] | None
+        The ids this member cites as contradicting the claim.
+    verdict : Verdict
+        The member's verdict.
+    model_name : str | None
+        The model identity, also used as the rationale marker for ranking.
+
+    Returns
+    -------
+    FunctionModel
+        A model that drafts as a member and ranks as a peer.
+    """
+
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        if info.output_tools:
+            args = {
+                "verdict": verdict.value,
+                "supporting_ids": supporting or [],
+                "contradicting_ids": contradicting or [],
+                "rationale": model_name or "",
+            }
+            return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
+        return ModelResponse(parts=[TextPart(content=ranking_by_marker(user_text(messages)))])
+
+    return FunctionModel(respond, model_name=model_name)
+
+
 def triage_model(
     *, checkable: bool, refined: str | None = None, marker: str | None = None, model_name: str | None = None
 ) -> FunctionModel:
@@ -250,3 +326,37 @@ def failing_model(*, model_name: str | None = None) -> FunctionModel:
         raise RuntimeError("model crashed")
 
     return structured_function_model(decide, model_name=model_name)
+
+
+def council_provider(*, members: list[Model] | None = None, chairman: Model | None = None) -> ModelProvider:
+    """Build a council provider stub exposing the member and chairman models.
+
+    Parameters
+    ----------
+    members : list[Model] | None
+        The council member models, which also act as the rankers.
+    chairman : Model | None
+        The chairman model; requesting it without one configured raises.
+
+    Returns
+    -------
+    ModelProvider
+        A provider stub for the council stages.
+    """
+
+    class _Provider:
+        def cheap_model(self) -> Model:
+            """Raise, since the council stages never use the cheap model."""
+            raise RuntimeError("council provider stub has no cheap model")
+
+        def member_models(self) -> list[Model]:
+            """Return the stub member models."""
+            return members or []
+
+        def chairman_model(self) -> Model:
+            """Return the stub chairman model, or raise when none is configured."""
+            if chairman is None:
+                raise RuntimeError("council provider stub has no chairman model")
+            return chairman
+
+    return _Provider()

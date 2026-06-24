@@ -4,8 +4,10 @@ import pytest
 from pydantic import ValidationError
 from verdict.models import (
     AgreementSignals,
+    ChairmanVerdict,
     ClaimResult,
     Confidence,
+    ConfidenceBand,
     CouncilOutput,
     DraftVerdict,
     Edge,
@@ -156,10 +158,13 @@ def test_council_output_bundles_members_signals_and_chairman():
             )
         },
         signals=AgreementSignals(kendalls_w=0.8, eu=0.1, has_disagreement=False, low_information=False),
-        chairman_verdict=Verdict.SUPPORTED,
-        synthesis="s",
+        chairman=ChairmanVerdict(
+            verdict=Verdict.SUPPORTED, supporting_ids=["W1"], contradicting_ids=[], synthesis="s", dissent=None
+        ),
+        confidence=Confidence(score=0.8, band=ConfidenceBand.HIGH, basis="b"),
     )
-    assert out.chairman_verdict is Verdict.SUPPORTED
+    assert out.chairman.verdict is Verdict.SUPPORTED
+    assert out.confidence.band is ConfidenceBand.HIGH
 
 
 def test_claim_result_requires_confidence_on_both_paths():

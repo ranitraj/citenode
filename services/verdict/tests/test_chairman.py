@@ -12,7 +12,7 @@ from verdict.models import (
 )
 
 from tests.factories import make_balance, make_paper
-from tests.model_stubs import chairman_verdict_model
+from tests.model_stubs import chairman_verdict_model, council_provider
 
 
 def _evidence(stances: dict[str, Stance]) -> EvidenceSet:
@@ -34,19 +34,10 @@ def _signals() -> AgreementSignals:
     return AgreementSignals(kendalls_w=0.8, eu=0.1, has_disagreement=False, low_information=False)
 
 
-class _Provider:
-    def __init__(self, model):
-        self._model = model
-
-    def chairman_model(self):
-        """Return the stub chairman model."""
-        return self._model
-
-
 async def test_synthesise_verdict_returns_a_grounded_chairman_verdict():
     evidence = _evidence({"P_sup": Stance.SUPPORTS, "P_con": Stance.CONTRADICTS})
-    provider = _Provider(
-        chairman_verdict_model(
+    provider = council_provider(
+        chairman=chairman_verdict_model(
             verdict=Verdict.CONTESTED,
             supporting=["P_sup"],
             contradicting=["P_con"],
@@ -67,7 +58,9 @@ async def test_synthesise_verdict_returns_a_grounded_chairman_verdict():
 
 async def test_synthesise_verdict_drops_ungrounded_citations():
     evidence = _evidence({"P_sup": Stance.SUPPORTS})
-    provider = _Provider(chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P_sup", "ghost"]))
+    provider = council_provider(
+        chairman=chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P_sup", "ghost"])
+    )
 
     result = await synthesise_verdict("a claim", evidence, _drafts(["m0"]), _signals(), provider=provider)
 
@@ -76,7 +69,7 @@ async def test_synthesise_verdict_drops_ungrounded_citations():
 
 async def test_synthesise_verdict_drops_stance_mismatched_citations():
     evidence = _evidence({"P": Stance.SUPPORTS})
-    provider = _Provider(chairman_verdict_model(verdict=Verdict.REFUTED, contradicting=["P"]))
+    provider = council_provider(chairman=chairman_verdict_model(verdict=Verdict.REFUTED, contradicting=["P"]))
 
     result = await synthesise_verdict("a claim", evidence, _drafts(["m0"]), _signals(), provider=provider)
 
@@ -85,7 +78,9 @@ async def test_synthesise_verdict_drops_stance_mismatched_citations():
 
 async def test_synthesise_verdict_keeps_dissent_none_when_absent():
     evidence = _evidence({"P": Stance.SUPPORTS})
-    provider = _Provider(chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P"], dissent=None))
+    provider = council_provider(
+        chairman=chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P"], dissent=None)
+    )
 
     result = await synthesise_verdict("a claim", evidence, _drafts(["m0"]), _signals(), provider=provider)
 
