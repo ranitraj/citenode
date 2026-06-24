@@ -62,3 +62,6 @@ CALIBRATION_BINS = 10
 
 # Council panel is flagged when effective independent votes fall below this share of members.
 PANEL_INDEPENDENCE_FLOOR = 0.5
+
+# Graph-vs-vector ablation is inconclusive when graph recall@k stays below this floor.
+ABLATION_RECALL_FLOOR = 0.5

@@ -1,6 +1,7 @@
 """Shared object factories for tests."""
 
-from verdict.models import EvidenceBalance, Paper
+from verdict.eval.scifact import GoldAbstract, GoldClaim
+from verdict.models import EvidenceBalance, Paper, Verdict
 
 
 def make_paper(openalex_id: str, *, cited_by: int = 10, year: int = 2020, is_retracted: bool = False) -> Paper:
@@ -23,4 +24,20 @@ def make_balance(
     """Build an EvidenceBalance with the given lean and sensible count defaults."""
     return EvidenceBalance(
         supports=supports, contradicts=contradicts, neutral=neutral, off_topic=off_topic, weighted_lean=lean
+    )
+
+
+def make_gold_claim(
+    claim_id: str = "1",
+    *,
+    claim: str = "a claim",
+    verdict: Verdict = Verdict.SUPPORTED,
+    doc_ids: tuple[str, ...] = ("W1",),
+) -> GoldClaim:
+    """Build a GoldClaim with one gold abstract per doc id."""
+    return GoldClaim(
+        claim_id=claim_id,
+        claim=claim,
+        gold_verdict=verdict,
+        abstracts=[GoldAbstract(doc_id=doc_id, title="t", abstract="a") for doc_id in doc_ids],
     )

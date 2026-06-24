@@ -2,10 +2,8 @@
 
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.eval.end_to_end import RecallSample, recall_at_k, run_recall_eval, score_recall
-from verdict.eval.scifact import GoldAbstract, GoldClaim
-from verdict.models import Verdict
 
-from tests.factories import make_paper
+from tests.factories import make_gold_claim, make_paper
 from tests.model_stubs import council_provider, make_deps
 
 
@@ -41,14 +39,7 @@ async def test_run_recall_eval_measures_gold_recall_from_the_corpus():
     store = InMemoryGraphVectorStore()
     await store.upsert_paper(make_paper("W1"), [1.0, 0.0])
     await store.upsert_paper(make_paper("D1"), [1.0, 0.0])
-    gold = [
-        GoldClaim(
-            claim_id="1",
-            claim="a claim",
-            gold_verdict=Verdict.SUPPORTED,
-            abstracts=[GoldAbstract(doc_id="W1", title="t", abstract="a")],
-        )
-    ]
+    gold = [make_gold_claim()]
     deps = make_deps(council_provider(), store=store)
 
     samples = await run_recall_eval(gold, deps=deps, k=5)

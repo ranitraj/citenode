@@ -79,12 +79,26 @@ def score_recall(samples: list[RecallSample], *, k: int) -> RecallMetrics:
         The mean recall@k and the scored/total counts.
     """
     scored = [sample for sample in samples if sample.gold_ids]
-    mean = (
-        sum(recall_at_k(sample.retrieved_ids, set(sample.gold_ids)) for sample in scored) / len(scored)
-        if scored
-        else 0.0
-    )
-    return RecallMetrics(recall_at_k=mean, k=k, n_total=len(samples), n_scored=len(scored))
+    return RecallMetrics(recall_at_k=mean_recall(samples), k=k, n_total=len(samples), n_scored=len(scored))
+
+
+def mean_recall(samples: list[RecallSample]) -> float:
+    """Return the mean recall@k over the samples that carry gold evidence.
+
+    Parameters
+    ----------
+    samples : list[RecallSample]
+        The per-claim retrieved-vs-gold ids; samples without gold are skipped.
+
+    Returns
+    -------
+    float
+        The mean recall@k, or 0.0 when no sample carries gold.
+    """
+    scored = [sample for sample in samples if sample.gold_ids]
+    if not scored:
+        return 0.0
+    return sum(recall_at_k(sample.retrieved_ids, set(sample.gold_ids)) for sample in scored) / len(scored)
 
 
 def recall_at_k(retrieved_ids: list[str], gold_ids: set[str]) -> float:
