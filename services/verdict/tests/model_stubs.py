@@ -1,7 +1,7 @@
 """Shared pydantic-ai model stubs for tests."""
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -418,11 +418,15 @@ def council_provider(
 
 
 class StubEmbedder:
-    """An embedder returning a fixed vector for any text, for pipeline tests."""
+    """An embedder returning a fixed vector for any text, for pipeline and ingest tests."""
 
     async def embed(self, _text: str) -> list[float]:
         """Return the fixed embedding."""
         return [1.0, 0.0]
+
+    async def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
+        """Return one fixed embedding per text."""
+        return [[1.0, 0.0] for _ in texts]
 
 
 def make_deps(

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from verdict import config
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
+from verdict.embedding import paper_embedding_text
 from verdict.eval.scifact import GoldAbstract, GoldClaim
 from verdict.models import Paper, Verdict
 from verdict.pipeline import CitenodeDeps, verify_claim
@@ -111,7 +112,7 @@ async def _load_gold_store(store: InMemoryGraphVectorStore, abstracts: list[Gold
     """
     for abstract in abstracts:
         paper = _to_paper(abstract)
-        embedding = await embedder.embed(f"{paper.title} {paper.abstract}")
+        embedding = await embedder.embed(paper_embedding_text(paper))
         await store.upsert_paper(paper, embedding)
 
 

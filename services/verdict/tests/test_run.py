@@ -11,7 +11,13 @@ from verdict.models import (
 )
 
 from tests.factories import make_balance, make_paper
-from tests.model_stubs import chairman_verdict_model, council_provider, failing_model, member_ranker_model
+from tests.model_stubs import (
+    StubEmbedder,
+    chairman_verdict_model,
+    council_provider,
+    failing_model,
+    member_ranker_model,
+)
 
 
 def _evidence(stances: dict[str, Stance], *, lean: float) -> EvidenceSet:
@@ -22,12 +28,6 @@ def _evidence(stances: dict[str, Stance], *, lean: float) -> EvidenceSet:
     return EvidenceSet(items=items, balance=make_balance(lean, supports=len(items)), coverage_note="n")
 
 
-class _Embedder:
-    async def embed(self, _text: str) -> list[float]:
-        """Return a fixed draft embedding for epistemic-uncertainty wiring."""
-        return [1.0, 0.0]
-
-
 async def test_run_council_produces_a_full_council_output():
     evidence = _evidence({"P_sup": Stance.SUPPORTS}, lean=0.9)
     provider = council_provider(
@@ -35,7 +35,7 @@ async def test_run_council_produces_a_full_council_output():
         chairman=chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P_sup"], synthesis="clear support"),
     )
 
-    out = await run_council("a claim", evidence, provider=provider, embedder=_Embedder())
+    out = await run_council("a claim", evidence, provider=provider, embedder=StubEmbedder())
 
     assert isinstance(out, CouncilOutput)
     assert set(out.members) == {"m0", "m1", "m2", "m3"}
@@ -57,7 +57,7 @@ async def test_run_council_survives_one_failed_member():
         chairman=chairman_verdict_model(verdict=Verdict.SUPPORTED, supporting=["P_sup"]),
     )
 
-    out = await run_council("a claim", evidence, provider=provider, embedder=_Embedder())
+    out = await run_council("a claim", evidence, provider=provider, embedder=StubEmbedder())
 
     assert set(out.members) == {"m0", "m1", "m2"}
     assert out.chairman.verdict is Verdict.SUPPORTED
@@ -73,7 +73,7 @@ async def test_run_council_falls_back_to_member_majority_when_chairman_fails():
         chairman=failing_model(model_name="chair"),
     )
 
-    out = await run_council("a claim", evidence, provider=provider, embedder=_Embedder())
+    out = await run_council("a claim", evidence, provider=provider, embedder=StubEmbedder())
 
     assert out.chairman.verdict is Verdict.SUPPORTED
     assert out.chairman.supporting_ids == ["P_sup"]

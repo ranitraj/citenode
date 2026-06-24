@@ -51,3 +51,8 @@ COUNCIL_DRAFT_EMBED_CHARS = 2000
 # Uniform placeholder metadata for SciFact gold abstracts, which carry no citation or year.
 EVAL_GOLD_PAPER_YEAR = 2020
 EVAL_GOLD_PAPER_CITED_BY = 1
+
+# Bounds for OpenAlex seed-and-expand corpus ingestion.
+INGEST_SEED_LIMIT = 25
+INGEST_INCOMING_LIMIT = 10
+INGEST_MAX_PAPERS = 500
