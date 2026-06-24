@@ -1,4 +1,4 @@
-"""Run T11 reasoning-on-gold and score verdict accuracy against SciFact labels."""
+"""Run reasoning-on-gold and score verdict accuracy against SciFact labels."""
 
 from dataclasses import replace
 
@@ -46,7 +46,7 @@ async def run_reasoning_eval(gold: list[GoldClaim], *, deps: CitenodeDeps) -> li
     """Verify each gold claim against only its gold abstracts and record the verdict.
 
     Each claim runs over a fresh in-memory store holding just its gold evidence, so the
-    score isolates the stance and verdict reasoning from retrieval (T11). The provider
+    score isolates the stance and verdict reasoning from retrieval. The provider
     and embedders from ``deps`` are reused; only the store is swapped per claim.
 
     Parameters

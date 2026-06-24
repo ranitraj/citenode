@@ -1,4 +1,4 @@
-"""Tests for the T11 reasoning-on-gold runner and its metrics."""
+"""Tests for the reasoning-on-gold runner and its metrics."""
 
 from verdict.eval.reasoning import Prediction, run_reasoning_eval, score_reasoning
 from verdict.eval.scifact import GoldAbstract, GoldClaim
