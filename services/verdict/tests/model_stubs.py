@@ -308,6 +308,51 @@ def stance_model(title_to_stance: dict[str, Stance], *, model_name: str | None =
     return structured_function_model(decide, model_name=model_name)
 
 
+def cheap_path_model(
+    *,
+    checkable: bool = True,
+    stances: dict[str, Stance] | None = None,
+    verdict: Verdict = Verdict.SUPPORTED,
+    model_name: str | None = None,
+) -> FunctionModel:
+    """Build the cheap-path model that backs triage, stance scoring, and the cheap verdict.
+
+    A single cheap model serves three pipeline stages; this stub inspects the requested
+    output schema and returns the matching structured output: a triage result, a per-paper
+    stance (keyed on the paper title present in the prompt), or a cheap draft verdict.
+
+    Parameters
+    ----------
+    checkable : bool
+        The triage checkability to return.
+    stances : dict[str, Stance] | None
+        A title-substring to stance map for stance scoring; defaults to supports.
+    verdict : Verdict
+        The cheap draft verdict to return.
+    model_name : str | None
+        An identity for the model.
+
+    Returns
+    -------
+    FunctionModel
+        A model that adapts its output to the calling stage's schema.
+    """
+
+    def respond(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        properties = info.output_tools[0].parameters_json_schema.get("properties", {})
+        if "checkable" in properties:
+            args: dict[str, Any] = {"checkable": checkable, "refined_claim": None, "reason": "r"}
+        elif "stance" in properties:
+            prompt = user_text(messages)
+            stance = next((value for title, value in (stances or {}).items() if title in prompt), Stance.SUPPORTS)
+            args = {"stance": stance.value, "snippet": "snip", "rationale": "r"}
+        else:
+            args = {"verdict": verdict.value, "rationale": "r", "self_uncertainty": 0.1}
+        return ModelResponse(parts=[ToolCallPart(tool_name=info.output_tools[0].name, args=args)])
+
+    return FunctionModel(respond, model_name=model_name)
+
+
 def failing_model(*, model_name: str | None = None) -> FunctionModel:
     """Build a model whose every run raises, for quorum and fallback tests.
 
@@ -328,11 +373,16 @@ def failing_model(*, model_name: str | None = None) -> FunctionModel:
     return structured_function_model(decide, model_name=model_name)
 
 
-def council_provider(*, members: list[Model] | None = None, chairman: Model | None = None) -> ModelProvider:
-    """Build a council provider stub exposing the member and chairman models.
+def council_provider(
+    *, cheap: Model | None = None, members: list[Model] | None = None, chairman: Model | None = None
+) -> ModelProvider:
+    """Build a provider stub exposing the cheap, member, and chairman models.
 
     Parameters
     ----------
+    cheap : Model | None
+        The cheap-path model (triage, stance, cheap verdict); requesting it without
+        one configured raises.
     members : list[Model] | None
         The council member models, which also act as the rankers.
     chairman : Model | None
@@ -341,13 +391,15 @@ def council_provider(*, members: list[Model] | None = None, chairman: Model | No
     Returns
     -------
     ModelProvider
-        A provider stub for the council stages.
+        A provider stub for the cheap pass and the council stages.
     """
 
     class _Provider:
         def cheap_model(self) -> Model:
-            """Raise, since the council stages never use the cheap model."""
-            raise RuntimeError("council provider stub has no cheap model")
+            """Return the stub cheap model, or raise when none is configured."""
+            if cheap is None:
+                raise RuntimeError("council provider stub has no cheap model")
+            return cheap
 
         def member_models(self) -> list[Model]:
             """Return the stub member models."""
