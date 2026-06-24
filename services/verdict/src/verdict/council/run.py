@@ -3,14 +3,13 @@
 import asyncio
 from collections import Counter
 
+from verdict import config
 from verdict.council.aggregate import compute_confidence, epistemic_uncertainty, has_disagreement, kendalls_w
 from verdict.council.chairman import synthesise_verdict
 from verdict.council.members import draft_member_verdicts, ground_citations
 from verdict.council.rank import peer_rank
 from verdict.models import AgreementSignals, ChairmanVerdict, CouncilOutput, EvidenceSet, MemberVerdict, RankingOutput
 from verdict.ports import ModelProvider, TextEmbedder
-
-_DRAFT_EMBED_CHARS = 2000  # ADR 0016: cap each member draft before embedding for epistemic uncertainty.
 
 
 async def run_council(
@@ -75,7 +74,7 @@ async def _agreement_signals(
     ranking_lists = [ranking.resolved_ranking for ranking in rankings.values()]
     weight, low_information = kendalls_w(ranking_lists)
     embeddings = await asyncio.gather(
-        *(embedder.embed(draft.rationale[:_DRAFT_EMBED_CHARS]) for draft in drafts.values())
+        *(embedder.embed(draft.rationale[: config.COUNCIL_DRAFT_EMBED_CHARS]) for draft in drafts.values())
     )
     return AgreementSignals(
         kendalls_w=weight,

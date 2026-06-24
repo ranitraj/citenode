@@ -44,3 +44,10 @@ KENDALLS_W_UNSETTLED_FLOOR = 0.4
 
 # Cheap-pass self-uncertainty at/above this floor caps the confidence band one step.
 SELF_UNCERTAINTY_CAP_FLOOR = 0.5
+
+# Truncate each member draft to this many characters before embedding for epistemic uncertainty.
+COUNCIL_DRAFT_EMBED_CHARS = 2000
+
+# Uniform placeholder metadata for SciFact gold abstracts, which carry no citation or year.
+EVAL_GOLD_PAPER_YEAR = 2020
+EVAL_GOLD_PAPER_CITED_BY = 1

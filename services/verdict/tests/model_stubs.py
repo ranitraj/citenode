@@ -3,12 +3,15 @@
 import re
 from collections.abc import Callable
 from typing import Any
+from unittest.mock import MagicMock
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models import Model
 from pydantic_ai.models.function import AgentInfo, FunctionModel
+from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.models import Stance, Verdict
-from verdict.ports import ModelProvider
+from verdict.pipeline import CitenodeDeps
+from verdict.ports import GraphVectorStore, ModelProvider
 
 
 def user_text(messages: list[ModelMessage]) -> str:
@@ -412,3 +415,42 @@ def council_provider(
             return chairman
 
     return _Provider()
+
+
+class StubEmbedder:
+    """An embedder returning a fixed vector for any text, for pipeline tests."""
+
+    async def embed(self, _text: str) -> list[float]:
+        """Return the fixed embedding."""
+        return [1.0, 0.0]
+
+
+def make_deps(
+    provider: ModelProvider, *, store: GraphVectorStore | None = None, corpus_is_internal: bool = False
+) -> CitenodeDeps:
+    """Build pipeline dependencies wired with stub embedders and an in-memory store.
+
+    Parameters
+    ----------
+    provider : ModelProvider
+        The model provider stub for the run.
+    store : GraphVectorStore | None
+        The graph-vector store; a fresh in-memory store when omitted.
+    corpus_is_internal : bool
+        Whether the corpus is internal, for the ADR 0008 guard.
+
+    Returns
+    -------
+    CitenodeDeps
+        The assembled per-run dependencies.
+    """
+    return CitenodeDeps(
+        store=store or InMemoryGraphVectorStore(),
+        embedder=StubEmbedder(),
+        text_embedder=StubEmbedder(),
+        source=MagicMock(),
+        provider=provider,
+        k=5,
+        escalation_threshold=0.1,
+        corpus_is_internal=corpus_is_internal,
+    )

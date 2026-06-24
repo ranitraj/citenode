@@ -1,34 +1,19 @@
 """End-to-end tests for verify_claim across the cheap and council paths."""
 
-from unittest.mock import MagicMock
-
 import pytest
 from verdict.adapters.inmemory_store import InMemoryGraphVectorStore
 from verdict.adapters.openrouter import OpenRouterModelProvider
 from verdict.models import ClaimResult, Path, Stance, Verdict
-from verdict.pipeline import CitenodeDeps, InternalCorpusLeakError, verify_claim
+from verdict.pipeline import InternalCorpusLeakError, verify_claim
 
 from tests.factories import make_paper
-from tests.model_stubs import chairman_verdict_model, cheap_path_model, council_provider, member_ranker_model
-
-
-class _Embedder:
-    async def embed(self, _text: str) -> list[float]:
-        """Return a fixed query/draft embedding."""
-        return [1.0, 0.0]
-
-
-def _deps(*, provider, store=None, corpus_is_internal=False) -> CitenodeDeps:
-    return CitenodeDeps(
-        store=store or InMemoryGraphVectorStore(),
-        embedder=_Embedder(),
-        text_embedder=_Embedder(),
-        source=MagicMock(),
-        provider=provider,
-        k=5,
-        escalation_threshold=0.1,
-        corpus_is_internal=corpus_is_internal,
-    )
+from tests.model_stubs import (
+    chairman_verdict_model,
+    cheap_path_model,
+    council_provider,
+    make_deps,
+    member_ranker_model,
+)
 
 
 async def _store_with(papers: dict[str, list[float]]) -> InMemoryGraphVectorStore:
@@ -44,13 +29,13 @@ async def test_verify_claim_rejects_internal_corpus_on_openrouter_before_any_cal
     )
 
     with pytest.raises(InternalCorpusLeakError):
-        await verify_claim("a claim", deps=_deps(provider=provider, corpus_is_internal=True))
+        await verify_claim("a claim", deps=make_deps(provider, corpus_is_internal=True))
 
 
 async def test_verify_claim_returns_insufficient_for_a_non_checkable_claim():
     provider = council_provider(cheap=cheap_path_model(checkable=False))
 
-    result = await verify_claim("Modern art is bad.", deps=_deps(provider=provider))
+    result = await verify_claim("Modern art is bad.", deps=make_deps(provider))
 
     assert result.verdict is Verdict.INSUFFICIENT
     assert result.path is Path.CHEAP
@@ -62,7 +47,7 @@ async def test_verify_claim_takes_the_cheap_path_on_strong_one_sided_evidence():
     store = await _store_with({"P_sup": [1.0, 0.0]})
     provider = council_provider(cheap=cheap_path_model(verdict=Verdict.SUPPORTED))
 
-    result = await verify_claim("a claim", deps=_deps(provider=provider, store=store))
+    result = await verify_claim("a claim", deps=make_deps(provider, store=store))
 
     assert isinstance(result, ClaimResult)
     assert result.path is Path.CHEAP
@@ -90,7 +75,7 @@ async def test_verify_claim_escalates_to_the_council_on_contested_evidence():
         ),
     )
 
-    result = await verify_claim("a claim", deps=_deps(provider=provider, store=store))
+    result = await verify_claim("a claim", deps=make_deps(provider, store=store))
 
     assert result.path is Path.COUNCIL
     assert result.verdict is Verdict.CONTESTED
@@ -102,7 +87,7 @@ async def test_verify_claim_escalates_to_the_council_on_contested_evidence():
 
 async def test_verify_claim_persists_nothing_between_runs():
     store = await _store_with({"P_sup": [1.0, 0.0]})
-    deps = _deps(provider=council_provider(cheap=cheap_path_model()), store=store)
+    deps = make_deps(council_provider(cheap=cheap_path_model()), store=store)
 
     first = await verify_claim("Claim one.", deps=deps)
     second = await verify_claim("Claim two.", deps=deps)
