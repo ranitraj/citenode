@@ -11,10 +11,11 @@ services:
 
   embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest # needs a recent TEI for Qwen3-Embedding
+    platform: linux/amd64
     restart: unless-stopped
     ports:
       - "8080:80" # host 8080 (config.EMBEDDINGS_BASE_URL) -> container 80
-    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B"]
+    command: [ "--model-id", "Qwen/Qwen3-Embedding-0.6B" ]
     volumes:
       - tei-data:/data # model cache, so the weights are downloaded once
 

@@ -5,12 +5,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Environment-sourced secrets and OpenRouter model selection."""
+    """Environment-sourced secrets: OpenRouter model selection and OpenAlex credentials."""
 
     openrouter_api_key: str = ""
     openrouter_cheap_model: str = ""
     openrouter_member_models: list[str] = Field(default_factory=list)
     openrouter_chairman_model: str = ""
+    openalex_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -18,6 +19,10 @@ class Settings(BaseSettings):
 # Embeddings service (TEI) base URL and endpoint path; the local container default.
 EMBEDDINGS_BASE_URL = "http://localhost:8080"
 EMBEDDINGS_EMBED_PATH = "/embed"
+
+# Ollama embeddings server base URL and the model it serves; the local server default.
+OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_EMBED_MODEL = "qwen3-embedding:0.6b"
 
 # HelixDB v3 local instance (Docker container, on-disk). Queries are dynamic.
 # Node labels are PascalCase; properties and edge labels mirror the domain model.
