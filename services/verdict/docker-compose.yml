@@ -1,0 +1,22 @@
+# Local dev stack for the verdict service: HelixDB graph+vector store + TEI embeddings.
+# Usage: `docker compose up -d`, then run notebooks/explore.ipynb.
+services:
+  helix:
+    image: ghcr.io/helixdb/enterprise-dev
+    restart: unless-stopped
+    ports:
+      - "6969:8080" # host 6969 (config.HELIX_URL) -> container 8080
+    # In-memory by default (wiped on restart); the notebook re-ingests per claim.
+    # For persistent storage, use the `helix start --disk` CLI, which adds a MinIO sidecar.
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest # needs a recent TEI for Qwen3-Embedding
+    restart: unless-stopped
+    ports:
+      - "8080:80" # host 8080 (config.EMBEDDINGS_BASE_URL) -> container 80
+    command: ["--model-id", "Qwen/Qwen3-Embedding-0.6B"]
+    volumes:
+      - tei-data:/data # model cache, so the weights are downloaded once
+
+volumes:
+  tei-data:

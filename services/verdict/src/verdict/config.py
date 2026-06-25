@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
-# Embeddings service (TEI) endpoint path; the host is injected per deployment.
+# Embeddings service (TEI) base URL and endpoint path; the local container default.
+EMBEDDINGS_BASE_URL = "http://localhost:8080"
 EMBEDDINGS_EMBED_PATH = "/embed"
 
 # HelixDB v3 local instance (Docker container, on-disk). Queries are dynamic.
